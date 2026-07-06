@@ -28,9 +28,31 @@ function getWorksheetTitle(group: string, exercise: string) {
   return `Groep ${group} | ${formatExerciseName(exercise)}`
 }
 
+function getWorksheetFileName(group: string, exercise: string) {
+  const safeExercise = exercise
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+
+  return `groep${group}-${safeExercise || 'werkblad'}.pdf`
+}
+
 function addHeader(doc: jsPDF, group: string, exercise: string) {
+  doc.setDrawColor(37, 99, 235)
+  doc.setFillColor(37, 99, 235)
+  doc.roundedRect(pageMargin, 17, 4, 14, 1, 1, 'F')
+
+  doc.setFont('helvetica', 'bold')
   doc.setFontSize(22)
-  doc.text(getWorksheetTitle(group, exercise), pageMargin, 20)
+  doc.setTextColor(15, 23, 42)
+  doc.text(getWorksheetTitle(group, exercise), pageMargin + 9, 27)
+
+  doc.setDrawColor(226, 232, 240)
+  doc.setLineWidth(0.4)
+  doc.line(pageMargin, 36, pageWidth - pageMargin, 36)
+
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(0, 0, 0)
 }
 
 function drawAnswerSpace(doc: jsPDF, y: number) {
@@ -97,7 +119,7 @@ export async function generateWorksheetPdf(
 
   addHeader(doc, group, exercise)
 
-  let y = 42
+  let y = 50
 
   for (const question of questions) {
     doc.setFontSize(12)
@@ -118,5 +140,5 @@ export async function generateWorksheetPdf(
 
   addFooter(doc, group, exercise)
 
-  doc.save('werkblad.pdf')
+  doc.save(getWorksheetFileName(group, exercise))
 }
