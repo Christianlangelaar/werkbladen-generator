@@ -29,6 +29,14 @@ See [Vite Configuration Reference](https://vite.dev/config/).
 npm install
 ```
 
+Create `.env.local` from `.env.example` and fill in your OpenAI API key:
+
+```sh
+cp .env.example .env.local
+```
+
+You do not need `vite-plugin-api`. This project uses a small Vite dev-server middleware for `/api/worksheet`, because `vite-plugin-api@1.0.7` only supports Vite 2 while this app uses Vite 8.
+
 ### Compile and Hot-Reload for Development
 
 ```sh
