@@ -3,6 +3,7 @@ import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
 import dotenv from 'dotenv'
 import OpenAI from 'openai'
+import { getWorksheetPrompt } from './prompts'
 
 dotenv.config({ path: '.env.local' })
 
@@ -77,6 +78,7 @@ export default defineConfig({
             }
 
             const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+            const prompt = getWorksheetPrompt(group, exercise, safeAmount)
             const response = await openai.responses.create({
               model: process.env.OPENAI_MODEL || 'gpt-5.5',
               input: [
@@ -87,7 +89,7 @@ export default defineConfig({
                 },
                 {
                   role: 'user',
-                  content: `Maak ${safeAmount} korte ${exercise} voor groep ${group}. Geef alleen JSON terug in deze vorm: {"questions":["1. ...","2. ..."]}.`,
+                  content: prompt,
                 },
               ],
             })

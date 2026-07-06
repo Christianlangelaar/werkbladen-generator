@@ -105,6 +105,9 @@ async function generatePdf() {
                     <option value="4">
                         Groep 4
                     </option>
+                    <option value="5">
+                        Groep 5
+                    </option>
                 </select>
 
                 <span class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-slate-500">
