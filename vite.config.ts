@@ -12,6 +12,8 @@ type WorksheetRequest = {
   amount?: number
 }
 
+const maxWorksheetAmount = 50
+
 function fallbackQuestions(amount: number) {
   return Array.from({ length: amount }, (_, index) => `${index + 1}. __________________________________________`)
 }
@@ -57,7 +59,14 @@ export default defineConfig({
 
           try {
             const { group = '4', exercise = 'contextsommen', amount = 10 } = await readJsonBody(req)
-            const safeAmount = Math.min(Math.max(Number(amount) || 10, 1), 25)
+            const requestedAmount = Number(amount) || 10
+
+            if (requestedAmount > maxWorksheetAmount) {
+              sendJson(res, 400, { error: `Je kunt maximaal ${maxWorksheetAmount} opdrachten genereren.` })
+              return
+            }
+
+            const safeAmount = Math.min(Math.max(requestedAmount, 1), maxWorksheetAmount)
 
             if (!process.env.OPENAI_API_KEY) {
               sendJson(res, 200, {
