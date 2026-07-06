@@ -8,7 +8,15 @@ const amount = ref(10)
 const amountError = ref('')
 const generationError = ref('')
 const isGenerating = ref(false)
+const generationMessage = ref('Werkblad wordt gemaakt...')
 const maxAmount = 50
+const generationMessages = [
+    'Werkblad wordt gemaakt...',
+    'Opdrachten worden bedacht...',
+    'We zetten alles netjes klaar...',
+    'PDF wordt bijna geopend...',
+] as const
+let generationMessageInterval: number | undefined
 
 const fieldClass = 'w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-950 transition disabled:cursor-wait disabled:bg-slate-50 disabled:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100'
 const selectClass = `${fieldClass} appearance-none pr-12`
@@ -31,6 +39,23 @@ function wait(milliseconds: number) {
     })
 }
 
+function startGenerationMessages() {
+    let messageIndex = 0
+
+    generationMessage.value = generationMessages[messageIndex] ?? generationMessages[0]
+    generationMessageInterval = window.setInterval(() => {
+        messageIndex = (messageIndex + 1) % generationMessages.length
+        generationMessage.value = generationMessages[messageIndex] ?? generationMessages[0]
+    }, 3500)
+}
+
+function stopGenerationMessages() {
+    if (generationMessageInterval) {
+        window.clearInterval(generationMessageInterval)
+        generationMessageInterval = undefined
+    }
+}
+
 async function generatePdf() {
     if (!validateAmount()) {
         return
@@ -38,6 +63,7 @@ async function generatePdf() {
 
     generationError.value = ''
     isGenerating.value = true
+    startGenerationMessages()
 
     try {
         await Promise.all([
@@ -46,13 +72,14 @@ async function generatePdf() {
                 exercise.value,
                 amount.value,
             ),
-            wait(900),
+            wait(7600),
         ])
     } catch (error) {
         generationError.value = error instanceof Error
             ? error.message
             : 'Er ging iets mis met het genereren van de PDF.'
     } finally {
+        stopGenerationMessages()
         isGenerating.value = false
     }
 }
@@ -171,7 +198,12 @@ async function generatePdf() {
                 aria-hidden="true"
             />
 
-            <span>{{ isGenerating ? 'Werkblad wordt gemaakt...' : 'Genereer PDF' }}</span>
+            <span
+                aria-live="polite"
+                aria-atomic="true"
+            >
+                {{ isGenerating ? generationMessage : 'Genereer PDF' }}
+            </span>
 
             <span
                 v-if="isGenerating"

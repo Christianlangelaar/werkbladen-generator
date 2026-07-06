@@ -6,6 +6,8 @@ type WorksheetResponse = {
 }
 
 const pageMargin = 20
+const pageWidth = 210
+const pageHeight = 297
 const pageBottom = 280
 const questionMaxWidth = 170
 const answerLineWidth = 145
@@ -16,13 +18,19 @@ function fallbackQuestions(amount: number) {
   return Array.from({ length: amount }, (_, index) => `${index + 1}. __________________________________________`)
 }
 
+function formatExerciseName(exercise: string) {
+  return exercise
+    .replace(/[-_]/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+}
+
+function getWorksheetTitle(group: string, exercise: string) {
+  return `Groep ${group} | ${formatExerciseName(exercise)}`
+}
+
 function addHeader(doc: jsPDF, group: string, exercise: string) {
   doc.setFontSize(22)
-  doc.text('Werkblad', pageMargin, 20)
-
-  doc.setFontSize(12)
-  doc.text(`Groep: ${group}`, pageMargin, 40)
-  doc.text(`Oefensoort: ${exercise}`, pageMargin, 48)
+  doc.text(getWorksheetTitle(group, exercise), pageMargin, 20)
 }
 
 function drawAnswerSpace(doc: jsPDF, y: number) {
@@ -32,6 +40,25 @@ function drawAnswerSpace(doc: jsPDF, y: number) {
   const lineStartX = pageMargin + 25
 
   doc.line(lineStartX, y, lineStartX + answerLineWidth, y)
+}
+
+function addFooter(doc: jsPDF, group: string, exercise: string) {
+  const pageCount = doc.getNumberOfPages()
+  const worksheetTitle = getWorksheetTitle(group, exercise)
+
+  for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
+    doc.setPage(pageNumber)
+    doc.setDrawColor(226, 232, 240)
+    doc.line(pageMargin, pageHeight - 18, pageWidth - pageMargin, pageHeight - 18)
+
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    doc.setTextColor(100, 116, 139)
+    doc.text(worksheetTitle, pageMargin, pageHeight - 10)
+    doc.text(`Pagina ${pageNumber} van ${pageCount}`, pageWidth - pageMargin, pageHeight - 10, {
+      align: 'right',
+    })
+  }
 }
 
 async function getWorksheetQuestions(group: string, exercise: string, amount: number) {
@@ -70,7 +97,7 @@ export async function generateWorksheetPdf(
 
   addHeader(doc, group, exercise)
 
-  let y = 65
+  let y = 42
 
   for (const question of questions) {
     doc.setFontSize(12)
@@ -80,8 +107,7 @@ export async function generateWorksheetPdf(
 
     if (y + exerciseHeight > pageBottom) {
       doc.addPage()
-      addHeader(doc, group, exercise)
-      y = 65
+      y = 20
     }
 
     doc.text(questionLines, pageMargin, y)
@@ -89,6 +115,8 @@ export async function generateWorksheetPdf(
 
     y += exerciseHeight
   }
+
+  addFooter(doc, group, exercise)
 
   doc.save('werkblad.pdf')
 }
