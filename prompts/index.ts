@@ -24,6 +24,15 @@ import { groep5TafelAutomatiserenPrompt } from './groep5-tafel-automatiseren'
 import { groep5VermenigvuldigenPrompt } from './groep5-vermenigvuldigen'
 import { groep5WerkwoordspellingPrompt } from './groep5-werkwoordspelling'
 import { groep5WoordenschatPrompt } from './groep5-woordenschat'
+import { groep6BegrijpendLezenPrompt } from './groep6-begrijpend-lezen'
+import { groep6BreukenPrompt } from './groep6-breuken'
+import { groep6ContextsommenPrompt } from './groep6-contextsommen'
+import { groep6GrammaticaPrompt } from './groep6-grammatica'
+import { groep6KommagetallenPrompt } from './groep6-kommagetallen'
+import { groep6ProcentenPrompt } from './groep6-procenten'
+import { groep6SpellingPrompt } from './groep6-spelling'
+import { groep6VerhoudingenPrompt } from './groep6-verhoudingen'
+import { groep6WerkwoordspellingPrompt } from './groep6-werkwoordspelling'
 
 const promptBuilders: Record<string, (amount: number) => string> = {
   '3-aftrekken': groep3AftrekkenPrompt,
@@ -52,6 +61,15 @@ const promptBuilders: Record<string, (amount: number) => string> = {
   '5-vermenigvuldigen': groep5VermenigvuldigenPrompt,
   '5-werkwoordspelling': groep5WerkwoordspellingPrompt,
   '5-woordenschat': groep5WoordenschatPrompt,
+  '6-begrijpend-lezen': groep6BegrijpendLezenPrompt,
+  '6-breuken': groep6BreukenPrompt,
+  '6-contextsommen': groep6ContextsommenPrompt,
+  '6-grammatica': groep6GrammaticaPrompt,
+  '6-kommagetallen': groep6KommagetallenPrompt,
+  '6-procenten': groep6ProcentenPrompt,
+  '6-spelling': groep6SpellingPrompt,
+  '6-verhoudingen': groep6VerhoudingenPrompt,
+  '6-werkwoordspelling': groep6WerkwoordspellingPrompt,
 }
 
 export function getWorksheetPrompt(group: string, exercise: string, amount: number) {
