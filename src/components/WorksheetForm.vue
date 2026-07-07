@@ -55,6 +55,11 @@ const exerciseOptionGroupsByGroup: Record<string, ExerciseOptionGroup[]> = {
             label: 'Rekenen',
             options: [
                 { value: 'contextsommen', label: 'Contextsommen' },
+                { value: 'optellen-grote-getallen', label: 'Optellen (grote getallen)' },
+                { value: 'aftrekken-grote-getallen', label: 'Aftrekken (grote getallen)' },
+                { value: 'vermenigvuldigen', label: 'Vermenigvuldigen' },
+                { value: 'delen', label: 'Delen' },
+                { value: 'tafel-automatiseren', label: 'Tafel automatiseren' },
             ],
         },
     ],
