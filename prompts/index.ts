@@ -1,9 +1,13 @@
+import { groep4AftrekkenPrompt } from './groep4-aftrekken'
+import { groep4BegrijpendLezenPrompt } from './groep4-begrijpend-lezen'
 import { groep4ContextsommenPrompt } from './groep4-contextsommen'
 import { groep4OptellenPrompt } from './groep4-optellen'
 import { groep4TafelsPrompt } from './groep4-tafels'
 import { groep5ContextsommenPrompt } from './groep5-contextsommen'
 
 const promptBuilders: Record<string, (amount: number) => string> = {
+  '4-aftrekken': groep4AftrekkenPrompt,
+  '4-begrijpend-lezen': groep4BegrijpendLezenPrompt,
   '4-contextsommen': groep4ContextsommenPrompt,
   '4-optellen': groep4OptellenPrompt,
   '4-tafels': groep4TafelsPrompt,
