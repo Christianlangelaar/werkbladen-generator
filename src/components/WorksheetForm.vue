@@ -7,6 +7,11 @@ type ExerciseOption = {
     label: string
 }
 
+type ExerciseOptionGroup = {
+    label: string
+    options: ExerciseOption[]
+}
+
 const group = ref('4')
 const exercise = ref('contextsommen')
 const amount = ref(10)
@@ -25,21 +30,38 @@ let generationMessageInterval: number | undefined
 
 const fieldClass = 'w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-950 transition disabled:cursor-wait disabled:bg-slate-50 disabled:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100'
 const selectClass = `${fieldClass} appearance-none pr-12`
-const exerciseOptionsByGroup: Record<string, ExerciseOption[]> = {
+const exerciseOptionGroupsByGroup: Record<string, ExerciseOptionGroup[]> = {
     4: [
-        { value: 'contextsommen', label: 'Contextsommen' },
-        { value: 'optellen', label: 'Optellen' },
-        { value: 'aftrekken', label: 'Aftrekken' },
-        { value: 'tafels', label: 'Tafels' },
-        { value: 'begrijpend-lezen', label: 'Begrijpend lezen' },
-        { value: 'woordenschat', label: 'Woordenschat' },
+        {
+            label: 'Rekenen',
+            options: [
+                { value: 'contextsommen', label: 'Contextsommen' },
+                { value: 'optellen', label: 'Optellen' },
+                { value: 'aftrekken', label: 'Aftrekken' },
+                { value: 'tafels', label: 'Tafels' },
+            ],
+        },
+        {
+            label: 'Taal',
+            options: [
+                { value: 'begrijpend-lezen', label: 'Begrijpend lezen' },
+                { value: 'woordenschat', label: 'Woordenschat' },
+                { value: 'spelling', label: 'Spelling' },
+            ],
+        },
     ],
     5: [
-        { value: 'contextsommen', label: 'Contextsommen' },
+        {
+            label: 'Rekenen',
+            options: [
+                { value: 'contextsommen', label: 'Contextsommen' },
+            ],
+        },
     ],
 }
-const defaultExerciseOptions = exerciseOptionsByGroup[4] as ExerciseOption[]
-const exerciseOptions = computed(() => exerciseOptionsByGroup[group.value] ?? defaultExerciseOptions)
+const defaultExerciseOptionGroups = exerciseOptionGroupsByGroup[4] as ExerciseOptionGroup[]
+const exerciseOptionGroups = computed(() => exerciseOptionGroupsByGroup[group.value] ?? defaultExerciseOptionGroups)
+const exerciseOptions = computed(() => exerciseOptionGroups.value.flatMap((optionGroup) => optionGroup.options))
 
 watch(group, () => {
     const hasSelectedExercise = exerciseOptions.value.some((option) => option.value === exercise.value)
@@ -168,13 +190,19 @@ async function generatePdf() {
                     :disabled="isGenerating"
                     :class="selectClass"
                 >
-                    <option
-                        v-for="option in exerciseOptions"
-                        :key="option.value"
-                        :value="option.value"
+                    <optgroup
+                        v-for="optionGroup in exerciseOptionGroups"
+                        :key="optionGroup.label"
+                        :label="optionGroup.label"
                     >
-                        {{ option.label }}
-                    </option>
+                        <option
+                            v-for="option in optionGroup.options"
+                            :key="option.value"
+                            :value="option.value"
+                        >
+                            {{ option.label }}
+                        </option>
+                    </optgroup>
                 </select>
 
                 <span class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-slate-500">
