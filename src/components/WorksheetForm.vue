@@ -28,6 +28,7 @@ const selectClass = `${fieldClass} appearance-none pr-12`
 const exerciseOptionsByGroup: Record<string, ExerciseOption[]> = {
     4: [
         { value: 'contextsommen', label: 'Contextsommen' },
+        { value: 'optellen', label: 'Optellen' },
         { value: 'tafels', label: 'Tafels' },
     ],
     5: [

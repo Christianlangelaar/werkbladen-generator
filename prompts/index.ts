@@ -1,9 +1,11 @@
 import { groep4ContextsommenPrompt } from './groep4-contextsommen'
+import { groep4OptellenPrompt } from './groep4-optellen'
 import { groep4TafelsPrompt } from './groep4-tafels'
 import { groep5ContextsommenPrompt } from './groep5-contextsommen'
 
 const promptBuilders: Record<string, (amount: number) => string> = {
   '4-contextsommen': groep4ContextsommenPrompt,
+  '4-optellen': groep4OptellenPrompt,
   '4-tafels': groep4TafelsPrompt,
   '5-contextsommen': groep5ContextsommenPrompt,
 }
