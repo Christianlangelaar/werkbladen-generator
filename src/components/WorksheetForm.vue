@@ -114,6 +114,32 @@ const exerciseOptionGroupsByGroup: Record<string, ExerciseOptionGroup[]> = {
             ],
         },
     ],
+    7: [
+        {
+            label: 'Rekenen',
+            options: [
+                { value: 'contextsommen', label: 'Contextsommen' },
+                { value: 'procenten', label: 'Procenten' },
+                { value: 'schaal', label: 'Schaal' },
+                { value: 'breuken', label: 'Breuken' },
+            ],
+        },
+        {
+            label: 'Taal',
+            options: [
+                { value: 'begrijpend-lezen', label: 'Begrijpend lezen' },
+                { value: 'werkwoordspelling', label: 'Werkwoordspelling' },
+                { value: 'grammatica', label: 'Grammatica' },
+                { value: 'samenvatten', label: 'Samenvatten' },
+            ],
+        },
+        {
+            label: 'Engels',
+            options: [
+                { value: 'engels-woordenschat', label: 'Woordenschat' },
+            ],
+        },
+    ],
 }
 const defaultExerciseOptionGroups = exerciseOptionGroupsByGroup[4] as ExerciseOptionGroup[]
 const exerciseOptionGroups = computed(() => exerciseOptionGroupsByGroup[group.value] ?? defaultExerciseOptionGroups)
@@ -219,6 +245,9 @@ async function generatePdf() {
                     </option>
                     <option value="6">
                         Groep 6
+                    </option>
+                    <option value="7">
+                        Groep 7
                     </option>
                 </select>
 
