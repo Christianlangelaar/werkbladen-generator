@@ -32,6 +32,7 @@ const exerciseOptionsByGroup: Record<string, ExerciseOption[]> = {
         { value: 'aftrekken', label: 'Aftrekken' },
         { value: 'tafels', label: 'Tafels' },
         { value: 'begrijpend-lezen', label: 'Begrijpend lezen' },
+        { value: 'woordenschat', label: 'Woordenschat' },
     ],
     5: [
         { value: 'contextsommen', label: 'Contextsommen' },
