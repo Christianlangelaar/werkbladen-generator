@@ -42,6 +42,15 @@ import { groep7ProcentenPrompt } from './groep7-procenten'
 import { groep7SamenvattenPrompt } from './groep7-samenvatten'
 import { groep7SchaalPrompt } from './groep7-schaal'
 import { groep7WerkwoordspellingPrompt } from './groep7-werkwoordspelling'
+import { groep8BegrijpendLezenPrompt } from './groep8-begrijpend-lezen'
+import { groep8BreukenPrompt } from './groep8-breuken'
+import { groep8ContextsommenPrompt } from './groep8-contextsommen'
+import { groep8EindtoetsRekenenPrompt } from './groep8-eindtoets-rekenen'
+import { groep8GrammaticaPrompt } from './groep8-grammatica'
+import { groep8ProcentenPrompt } from './groep8-procenten'
+import { groep8SamenvattenPrompt } from './groep8-samenvatten'
+import { groep8VerhoudingenPrompt } from './groep8-verhoudingen'
+import { groep8WerkwoordspellingPrompt } from './groep8-werkwoordspelling'
 
 const promptBuilders: Record<string, (amount: number) => string> = {
   '3-aftrekken': groep3AftrekkenPrompt,
@@ -88,6 +97,15 @@ const promptBuilders: Record<string, (amount: number) => string> = {
   '7-samenvatten': groep7SamenvattenPrompt,
   '7-schaal': groep7SchaalPrompt,
   '7-werkwoordspelling': groep7WerkwoordspellingPrompt,
+  '8-begrijpend-lezen': groep8BegrijpendLezenPrompt,
+  '8-breuken': groep8BreukenPrompt,
+  '8-contextsommen': groep8ContextsommenPrompt,
+  '8-eindtoets-rekenen': groep8EindtoetsRekenenPrompt,
+  '8-grammatica': groep8GrammaticaPrompt,
+  '8-procenten': groep8ProcentenPrompt,
+  '8-samenvatten': groep8SamenvattenPrompt,
+  '8-verhoudingen': groep8VerhoudingenPrompt,
+  '8-werkwoordspelling': groep8WerkwoordspellingPrompt,
 }
 
 export function getWorksheetPrompt(group: string, exercise: string, amount: number) {
