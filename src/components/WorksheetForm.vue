@@ -1,6 +1,11 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { generateWorksheetPdf } from '../services/generateWorksheetPdf'
+
+type ExerciseOption = {
+    value: string
+    label: string
+}
 
 const group = ref('4')
 const exercise = ref('contextsommen')
@@ -20,6 +25,25 @@ let generationMessageInterval: number | undefined
 
 const fieldClass = 'w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-950 transition disabled:cursor-wait disabled:bg-slate-50 disabled:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100'
 const selectClass = `${fieldClass} appearance-none pr-12`
+const exerciseOptionsByGroup: Record<string, ExerciseOption[]> = {
+    4: [
+        { value: 'contextsommen', label: 'Contextsommen' },
+        { value: 'tafels', label: 'Tafels' },
+    ],
+    5: [
+        { value: 'contextsommen', label: 'Contextsommen' },
+    ],
+}
+const defaultExerciseOptions = exerciseOptionsByGroup[4] as ExerciseOption[]
+const exerciseOptions = computed(() => exerciseOptionsByGroup[group.value] ?? defaultExerciseOptions)
+
+watch(group, () => {
+    const hasSelectedExercise = exerciseOptions.value.some((option) => option.value === exercise.value)
+
+    if (!hasSelectedExercise) {
+        exercise.value = exerciseOptions.value[0]?.value ?? 'contextsommen'
+    }
+})
 
 function validateAmount() {
     if (amount.value > maxAmount) {
@@ -140,8 +164,12 @@ async function generatePdf() {
                     :disabled="isGenerating"
                     :class="selectClass"
                 >
-                    <option value="contextsommen">
-                        Contextsommen
+                    <option
+                        v-for="option in exerciseOptions"
+                        :key="option.value"
+                        :value="option.value"
+                    >
+                        {{ option.label }}
                     </option>
                 </select>
 
