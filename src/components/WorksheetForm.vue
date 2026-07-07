@@ -62,6 +62,17 @@ const exerciseOptionGroupsByGroup: Record<string, ExerciseOptionGroup[]> = {
                 { value: 'tafel-automatiseren', label: 'Tafel automatiseren' },
             ],
         },
+        {
+            label: 'Taal',
+            options: [
+                { value: 'begrijpend-lezen', label: 'Begrijpend lezen' },
+                { value: 'woordenschat', label: 'Woordenschat' },
+                { value: 'spelling', label: 'Spelling' },
+                { value: 'werkwoordspelling', label: 'Werkwoordspelling' },
+                { value: 'grammatica', label: 'Grammatica' },
+                { value: 'leestekens', label: 'Leestekens' },
+            ],
+        },
     ],
 }
 const defaultExerciseOptionGroups = exerciseOptionGroupsByGroup[4] as ExerciseOptionGroup[]
