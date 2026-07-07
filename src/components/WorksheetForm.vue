@@ -12,14 +12,25 @@ type ExerciseOptionGroup = {
     options: ExerciseOption[]
 }
 
-const group = ref('4')
-const exercise = ref('contextsommen')
-const amount = ref(10)
+type StoredWorksheetSettings = {
+    group?: string
+    exercise?: string
+    amount?: number
+}
+
+const defaultGroup = '4'
+const defaultExercise = 'contextsommen'
+const defaultAmount = 10
+const maxAmount = 50
+const settingsStorageKey = 'worksheet-generator-settings'
+
+const group = ref(defaultGroup)
+const exercise = ref(defaultExercise)
+const amount = ref(defaultAmount)
 const amountError = ref('')
 const generationError = ref('')
 const isGenerating = ref(false)
 const generationMessage = ref('Werkblad wordt gemaakt...')
-const maxAmount = 50
 const generationMessages = [
     'Werkblad wordt gemaakt...',
     'Opdrachten worden bedacht...',
@@ -166,6 +177,58 @@ const defaultExerciseOptionGroups = exerciseOptionGroupsByGroup[4] as ExerciseOp
 const exerciseOptionGroups = computed(() => exerciseOptionGroupsByGroup[group.value] ?? defaultExerciseOptionGroups)
 const exerciseOptions = computed(() => exerciseOptionGroups.value.flatMap((optionGroup) => optionGroup.options))
 
+function getFirstExerciseForGroup(groupValue: string) {
+    return exerciseOptionGroupsByGroup[groupValue]?.[0]?.options[0]?.value ?? defaultExercise
+}
+
+function isValidExerciseForGroup(groupValue: string, exerciseValue: string) {
+    return exerciseOptionGroupsByGroup[groupValue]
+        ?.some((optionGroup) => optionGroup.options.some((option) => option.value === exerciseValue)) ?? false
+}
+
+function normalizeAmount(value: unknown) {
+    const numericValue = Number(value)
+
+    if (!Number.isFinite(numericValue)) {
+        return defaultAmount
+    }
+
+    return Math.min(Math.max(Math.trunc(numericValue), 1), maxAmount)
+}
+
+function loadStoredSettings() {
+    try {
+        const storedSettings = window.localStorage.getItem(settingsStorageKey)
+
+        if (!storedSettings) {
+            return
+        }
+
+        const parsedSettings = JSON.parse(storedSettings) as StoredWorksheetSettings
+        const storedGroup = parsedSettings.group && exerciseOptionGroupsByGroup[parsedSettings.group]
+            ? parsedSettings.group
+            : defaultGroup
+
+        group.value = storedGroup
+        exercise.value = parsedSettings.exercise && isValidExerciseForGroup(storedGroup, parsedSettings.exercise)
+            ? parsedSettings.exercise
+            : getFirstExerciseForGroup(storedGroup)
+        amount.value = normalizeAmount(parsedSettings.amount)
+    } catch {
+        window.localStorage.removeItem(settingsStorageKey)
+    }
+}
+
+function saveStoredSettings() {
+    window.localStorage.setItem(settingsStorageKey, JSON.stringify({
+        group: group.value,
+        exercise: exercise.value,
+        amount: normalizeAmount(amount.value),
+    }))
+}
+
+loadStoredSettings()
+
 watch(group, () => {
     const hasSelectedExercise = exerciseOptions.value.some((option) => option.value === exercise.value)
 
@@ -173,6 +236,8 @@ watch(group, () => {
         exercise.value = exerciseOptions.value[0]?.value ?? 'contextsommen'
     }
 })
+
+watch([group, exercise, amount], saveStoredSettings)
 
 function validateAmount() {
     if (amount.value > maxAmount) {
