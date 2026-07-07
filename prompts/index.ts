@@ -1,3 +1,10 @@
+import { groep3AftrekkenPrompt } from './groep3-aftrekken'
+import { groep3BegrijpendLezenPrompt } from './groep3-begrijpend-lezen'
+import { groep3ContextsommenPrompt } from './groep3-contextsommen'
+import { groep3OptellenPrompt } from './groep3-optellen'
+import { groep3RijmenPrompt } from './groep3-rijmen'
+import { groep3SplitsenPrompt } from './groep3-splitsen'
+import { groep3WoordenschatPrompt } from './groep3-woordenschat'
 import { groep4AftrekkenPrompt } from './groep4-aftrekken'
 import { groep4BegrijpendLezenPrompt } from './groep4-begrijpend-lezen'
 import { groep4ContextsommenPrompt } from './groep4-contextsommen'
@@ -19,6 +26,13 @@ import { groep5WerkwoordspellingPrompt } from './groep5-werkwoordspelling'
 import { groep5WoordenschatPrompt } from './groep5-woordenschat'
 
 const promptBuilders: Record<string, (amount: number) => string> = {
+  '3-aftrekken': groep3AftrekkenPrompt,
+  '3-begrijpend-lezen': groep3BegrijpendLezenPrompt,
+  '3-contextsommen': groep3ContextsommenPrompt,
+  '3-optellen': groep3OptellenPrompt,
+  '3-rijmen': groep3RijmenPrompt,
+  '3-splitsen': groep3SplitsenPrompt,
+  '3-woordenschat': groep3WoordenschatPrompt,
   '4-aftrekken': groep4AftrekkenPrompt,
   '4-begrijpend-lezen': groep4BegrijpendLezenPrompt,
   '4-contextsommen': groep4ContextsommenPrompt,

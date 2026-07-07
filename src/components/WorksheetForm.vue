@@ -31,6 +31,25 @@ let generationMessageInterval: number | undefined
 const fieldClass = 'w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-950 transition disabled:cursor-wait disabled:bg-slate-50 disabled:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100'
 const selectClass = `${fieldClass} appearance-none pr-12`
 const exerciseOptionGroupsByGroup: Record<string, ExerciseOptionGroup[]> = {
+    3: [
+        {
+            label: 'Rekenen',
+            options: [
+                { value: 'contextsommen', label: 'Contextsommen' },
+                { value: 'optellen', label: 'Optellen' },
+                { value: 'aftrekken', label: 'Aftrekken' },
+                { value: 'splitsen', label: 'Splitsen' },
+            ],
+        },
+        {
+            label: 'Taal',
+            options: [
+                { value: 'begrijpend-lezen', label: 'Begrijpend lezen' },
+                { value: 'woordenschat', label: 'Woordenschat' },
+                { value: 'rijmen', label: 'Rijmen' },
+            ],
+        },
+    ],
     4: [
         {
             label: 'Rekenen',
@@ -168,6 +187,9 @@ async function generatePdf() {
                     :disabled="isGenerating"
                     :class="selectClass"
                 >
+                    <option value="3">
+                        Groep 3
+                    </option>
                     <option value="4">
                         Groep 4
                     </option>
