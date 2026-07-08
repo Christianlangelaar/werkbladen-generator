@@ -15,18 +15,23 @@ type ExerciseOptionGroup = {
 type StoredWorksheetSettings = {
     group?: string
     exercise?: string
-    amount?: number
+    pageCount?: number
 }
 
 const defaultGroup = '4'
 const defaultExercise = 'contextsommen'
-const defaultAmount = 10
-const maxAmount = 50
+const defaultPageCount = 1
+const maxPageCount = 5
+const compactArithmeticQuestionsPerPage = 100
+const readingQuestionsPerPage = 7
+const summaryQuestionsPerPage = 4
+const storyQuestionsPerPage = 10
+const standardQuestionsPerPage = 18
 const settingsStorageKey = 'worksheet-generator-settings'
 
 const group = ref(defaultGroup)
 const exercise = ref(defaultExercise)
-const amount = ref(defaultAmount)
+const pageCount = ref(defaultPageCount)
 const amountError = ref('')
 const generationError = ref('')
 const isGenerating = ref(false)
@@ -176,6 +181,52 @@ const exerciseOptionGroupsByGroup: Record<string, ExerciseOptionGroup[]> = {
 const defaultExerciseOptionGroups = exerciseOptionGroupsByGroup[4] as ExerciseOptionGroup[]
 const exerciseOptionGroups = computed(() => exerciseOptionGroupsByGroup[group.value] ?? defaultExerciseOptionGroups)
 const exerciseOptions = computed(() => exerciseOptionGroups.value.flatMap((optionGroup) => optionGroup.options))
+const compactArithmeticExercises = new Set([
+    'optellen',
+    'aftrekken',
+    'splitsen',
+    'tafels',
+    'optellen-grote-getallen',
+    'aftrekken-grote-getallen',
+    'vermenigvuldigen',
+    'delen',
+    'tafel-automatiseren',
+])
+const readingExercises = new Set([
+    'begrijpend-lezen',
+])
+const summaryExercises = new Set([
+    'samenvatten',
+])
+const storyExercises = new Set([
+    'contextsommen',
+    'eindtoets-rekenen',
+])
+const questionsPerPage = computed(() => {
+    if (compactArithmeticExercises.has(exercise.value)) {
+        return compactArithmeticQuestionsPerPage
+    }
+
+    if (readingExercises.has(exercise.value)) {
+        return readingQuestionsPerPage
+    }
+
+    if (summaryExercises.has(exercise.value)) {
+        return summaryQuestionsPerPage
+    }
+
+    if (storyExercises.has(exercise.value)) {
+        return storyQuestionsPerPage
+    }
+
+    return standardQuestionsPerPage
+})
+const generatedAmount = computed(() => pageCount.value * questionsPerPage.value)
+const pageCountHelpText = computed(() => {
+    const assignmentLabel = compactArithmeticExercises.has(exercise.value) ? 'sommen' : 'opdrachten'
+
+    return `Ongeveer ${generatedAmount.value} ${assignmentLabel} in compacte A4-indeling.`
+})
 
 function getFirstExerciseForGroup(groupValue: string) {
     return exerciseOptionGroupsByGroup[groupValue]?.[0]?.options[0]?.value ?? defaultExercise
@@ -186,14 +237,14 @@ function isValidExerciseForGroup(groupValue: string, exerciseValue: string) {
         ?.some((optionGroup) => optionGroup.options.some((option) => option.value === exerciseValue)) ?? false
 }
 
-function normalizeAmount(value: unknown) {
+function normalizePageCount(value: unknown) {
     const numericValue = Number(value)
 
     if (!Number.isFinite(numericValue)) {
-        return defaultAmount
+        return defaultPageCount
     }
 
-    return Math.min(Math.max(Math.trunc(numericValue), 1), maxAmount)
+    return Math.min(Math.max(Math.trunc(numericValue), 1), maxPageCount)
 }
 
 function loadStoredSettings() {
@@ -213,7 +264,7 @@ function loadStoredSettings() {
         exercise.value = parsedSettings.exercise && isValidExerciseForGroup(storedGroup, parsedSettings.exercise)
             ? parsedSettings.exercise
             : getFirstExerciseForGroup(storedGroup)
-        amount.value = normalizeAmount(parsedSettings.amount)
+        pageCount.value = normalizePageCount(parsedSettings.pageCount)
     } catch {
         window.localStorage.removeItem(settingsStorageKey)
     }
@@ -223,7 +274,7 @@ function saveStoredSettings() {
     window.localStorage.setItem(settingsStorageKey, JSON.stringify({
         group: group.value,
         exercise: exercise.value,
-        amount: normalizeAmount(amount.value),
+        pageCount: normalizePageCount(pageCount.value),
     }))
 }
 
@@ -237,11 +288,11 @@ watch(group, () => {
     }
 })
 
-watch([group, exercise, amount], saveStoredSettings)
+watch([group, exercise, pageCount], saveStoredSettings)
 
 function validateAmount() {
-    if (amount.value > maxAmount) {
-        amountError.value = `Je kunt maximaal ${maxAmount} opdrachten genereren.`
+    if (pageCount.value > maxPageCount) {
+        amountError.value = `Je kunt maximaal ${maxPageCount} pagina's genereren.`
 
         return false
     }
@@ -288,7 +339,8 @@ async function generatePdf() {
             generateWorksheetPdf(
                 group.value,
                 exercise.value,
-                amount.value,
+                generatedAmount.value,
+                compactArithmeticExercises.has(exercise.value) ? 'compact-arithmetic' : 'default',
             ),
             wait(7600),
         ])
@@ -405,21 +457,33 @@ async function generatePdf() {
         </div>
 
         <div>
-            <label class="mb-2 block text-sm font-medium text-slate-700">
-                Aantal opdrachten
+            <label
+                class="mb-2 block text-sm font-medium text-slate-700"
+                for="page-count"
+            >
+                Aantal pagina's
             </label>
 
             <input
-                v-model.number="amount"
+                id="page-count"
+                v-model.number="pageCount"
                 type="number"
                 min="1"
-                :max="maxAmount"
+                :max="maxPageCount"
                 :disabled="isGenerating"
                 :class="fieldClass"
                 :aria-invalid="amountError ? 'true' : 'false'"
-                aria-describedby="amount-error"
+                :aria-describedby="amountError ? 'amount-error' : 'page-count-help'"
                 @input="validateAmount"
             >
+
+            <p
+                v-if="!amountError"
+                id="page-count-help"
+                class="mt-2 text-sm text-slate-500"
+            >
+                {{ pageCountHelpText }}
+            </p>
 
             <p
                 v-if="amountError"
