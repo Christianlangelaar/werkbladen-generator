@@ -188,6 +188,8 @@ function getCompactQuestionParts(question: string) {
 }
 
 function addHeader(doc: jsPDF, group: string, exercise: string) {
+  const pageNumber = doc.getCurrentPageInfo().pageNumber
+
   doc.setDrawColor(37, 99, 235)
   doc.setFillColor(37, 99, 235)
   doc.roundedRect(pageMargin, 17, 4, 14, 1, 1, 'F')
@@ -196,6 +198,23 @@ function addHeader(doc: jsPDF, group: string, exercise: string) {
   doc.setFontSize(22)
   doc.setTextColor(15, 23, 42)
   doc.text(getWorksheetTitle(group, exercise), pageMargin + 9, 27)
+
+  if (pageNumber === 1) {
+    const fieldX = 152
+    const lineX = 164
+    const lineWidth = 25
+
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8)
+    doc.setTextColor(71, 85, 105)
+    doc.setDrawColor(148, 163, 184)
+    doc.setLineWidth(0.25)
+
+    doc.text('Naam:', fieldX, 20)
+    doc.line(lineX, 20.6, lineX + lineWidth, 20.6)
+    doc.text('Datum:', fieldX, 27)
+    doc.line(lineX, 27.6, lineX + lineWidth, 27.6)
+  }
 
   doc.setDrawColor(226, 232, 240)
   doc.setLineWidth(0.4)
