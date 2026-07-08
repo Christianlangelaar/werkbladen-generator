@@ -108,16 +108,61 @@ const promptBuilders: Record<string, (amount: number) => string> = {
   '8-werkwoordspelling': groep8WerkwoordspellingPrompt,
 }
 
-export function getWorksheetPrompt(group: string, exercise: string, amount: number) {
-  const promptBuilder = promptBuilders[`${group}-${exercise}`]
-
-  if (promptBuilder) {
-    return promptBuilder(amount)
+function getThemeInstruction(theme?: string) {
+  if (!theme) {
+    return ''
   }
 
   return [
-    `Maak ${amount} korte ${exercise} voor groep ${group}.`,
-    'Maak de opdrachten passend bij het Nederlandse basisschoolniveau van deze groep.',
-    'Geef alleen JSON terug in deze vorm: {"questions":["1. ...","2. ..."]}.',
+    `Gebruik waar dat natuurlijk past het thema "${theme}".`,
+    'Laat het thema vooral terugkomen in namen, situaties, korte teksten en contexten.',
+    'Maak opdrachten niet langer dan nodig om het thema te gebruiken.',
+    'Gebruik geen geweld, angstige situaties of volwassen onderwerpen.',
   ].join(' ')
+}
+
+function getDifficultyInstruction(difficulty?: string) {
+  if (!difficulty) {
+    return ''
+  }
+
+  if (difficulty === 'Makkelijker') {
+    return [
+      'Maak de opdrachten iets makkelijker dan het standaardniveau voor deze groep.',
+      'Gebruik kleinere stappen, eenvoudigere woorden of minder afleiders waar dat past.',
+      'Blijf wel op het niveau van de gekozen groep.',
+    ].join(' ')
+  }
+
+  if (difficulty === 'Uitdagender') {
+    return [
+      'Maak de opdrachten iets uitdagender dan het standaardniveau voor deze groep.',
+      'Gebruik grotere stappen, rijkere contexten of iets meer denkwerk waar dat past.',
+      'Maak de opdrachten niet frustrerend moeilijk en blijf passend voor de gekozen groep.',
+    ].join(' ')
+  }
+
+  return ''
+}
+
+export function getWorksheetPrompt(
+  group: string,
+  exercise: string,
+  amount: number,
+  theme?: string,
+  difficulty?: string,
+) {
+  const promptBuilder = promptBuilders[`${group}-${exercise}`]
+  const basePrompt = promptBuilder
+    ? promptBuilder(amount)
+    : [
+        `Maak ${amount} korte ${exercise} voor groep ${group}.`,
+        'Maak de opdrachten passend bij het Nederlandse basisschoolniveau van deze groep.',
+        'Geef alleen JSON terug in deze vorm: {"questions":["1. ...","2. ..."]}.',
+      ].join(' ')
+  const themeInstruction = getThemeInstruction(theme)
+  const difficultyInstruction = getDifficultyInstruction(difficulty)
+  const extraInstructions = [themeInstruction, difficultyInstruction].filter(Boolean)
+
+  return extraInstructions.length > 0 ? `${basePrompt} ${extraInstructions.join(' ')}` : basePrompt
 }

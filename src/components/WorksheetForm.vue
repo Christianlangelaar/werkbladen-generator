@@ -16,6 +16,8 @@ type StoredWorksheetSettings = {
     group?: string
     exercise?: string
     pageCount?: number
+    theme?: string
+    difficulty?: string
 }
 
 const defaultGroup = '4'
@@ -32,6 +34,8 @@ const settingsStorageKey = 'worksheet-generator-settings'
 const group = ref(defaultGroup)
 const exercise = ref(defaultExercise)
 const pageCount = ref(defaultPageCount)
+const theme = ref('')
+const difficulty = ref('')
 const amountError = ref('')
 const generationError = ref('')
 const isGenerating = ref(false)
@@ -46,6 +50,21 @@ let generationMessageInterval: number | undefined
 
 const fieldClass = 'w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-950 transition disabled:cursor-wait disabled:bg-slate-50 disabled:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100'
 const selectClass = `${fieldClass} appearance-none pr-12`
+const themeOptions = [
+    'Voetbal',
+    'Paarden',
+    'Dieren',
+    "Dino's",
+    'Minecraft',
+    'Prinsessen',
+    'Ruimte',
+    "Auto's",
+    'Pokémon',
+] as const
+const difficultyOptions = [
+    'Makkelijker',
+    'Uitdagender',
+] as const
 const exerciseOptionGroupsByGroup: Record<string, ExerciseOptionGroup[]> = {
     3: [
         {
@@ -202,6 +221,19 @@ const storyExercises = new Set([
     'contextsommen',
     'eindtoets-rekenen',
 ])
+const themeSupportedExercises = new Set([
+    'begrijpend-lezen',
+    'contextsommen',
+    'eindtoets-rekenen',
+    'engels-woordenschat',
+    'grammatica',
+    'leestekens',
+    'rijmen',
+    'samenvatten',
+    'spelling',
+    'werkwoordspelling',
+    'woordenschat',
+])
 const questionsPerPage = computed(() => {
     if (compactArithmeticExercises.has(exercise.value)) {
         return compactArithmeticQuestionsPerPage
@@ -227,6 +259,8 @@ const pageCountHelpText = computed(() => {
 
     return `Ongeveer ${generatedAmount.value} ${assignmentLabel} in compacte A4-indeling.`
 })
+const supportsTheme = computed(() => themeSupportedExercises.has(exercise.value))
+const activeTheme = computed(() => supportsTheme.value ? normalizeTheme(theme.value) : '')
 
 function getFirstExerciseForGroup(groupValue: string) {
     return exerciseOptionGroupsByGroup[groupValue]?.[0]?.options[0]?.value ?? defaultExercise
@@ -247,6 +281,18 @@ function normalizePageCount(value: unknown) {
     return Math.min(Math.max(Math.trunc(numericValue), 1), maxPageCount)
 }
 
+function normalizeTheme(value: unknown) {
+    return typeof value === 'string' && themeOptions.includes(value as typeof themeOptions[number])
+        ? value
+        : ''
+}
+
+function normalizeDifficulty(value: unknown) {
+    return typeof value === 'string' && difficultyOptions.includes(value as typeof difficultyOptions[number])
+        ? value
+        : ''
+}
+
 function loadStoredSettings() {
     try {
         const storedSettings = window.localStorage.getItem(settingsStorageKey)
@@ -265,6 +311,8 @@ function loadStoredSettings() {
             ? parsedSettings.exercise
             : getFirstExerciseForGroup(storedGroup)
         pageCount.value = normalizePageCount(parsedSettings.pageCount)
+        theme.value = normalizeTheme(parsedSettings.theme)
+        difficulty.value = normalizeDifficulty(parsedSettings.difficulty)
     } catch {
         window.localStorage.removeItem(settingsStorageKey)
     }
@@ -275,6 +323,8 @@ function saveStoredSettings() {
         group: group.value,
         exercise: exercise.value,
         pageCount: normalizePageCount(pageCount.value),
+        theme: normalizeTheme(theme.value),
+        difficulty: normalizeDifficulty(difficulty.value),
     }))
 }
 
@@ -288,7 +338,7 @@ watch(group, () => {
     }
 })
 
-watch([group, exercise, pageCount], saveStoredSettings)
+watch([group, exercise, pageCount, theme, difficulty], saveStoredSettings)
 
 function validateAmount() {
     if (pageCount.value > maxPageCount) {
@@ -341,6 +391,8 @@ async function generatePdf() {
                 exercise.value,
                 generatedAmount.value,
                 compactArithmeticExercises.has(exercise.value) ? 'compact-arithmetic' : 'default',
+                activeTheme.value || undefined,
+                normalizeDifficulty(difficulty.value) || undefined,
             ),
             wait(7600),
         ])
@@ -435,6 +487,90 @@ async function generatePdf() {
                             {{ option.label }}
                         </option>
                     </optgroup>
+                </select>
+
+                <span class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-slate-500">
+                    <svg
+                        aria-hidden="true"
+                        class="h-5 w-5"
+                        viewBox="0 0 20 20"
+                        fill="none"
+                    >
+                        <path
+                            d="M5 7.5L10 12.5L15 7.5"
+                            stroke="currentColor"
+                            stroke-width="1.8"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        />
+                    </svg>
+                </span>
+            </div>
+        </div>
+
+        <div v-if="supportsTheme">
+            <label class="mb-2 block text-sm font-medium text-slate-700">
+                Thema
+            </label>
+
+            <div class="relative">
+                <select
+                    v-model="theme"
+                    :disabled="isGenerating"
+                    :class="selectClass"
+                >
+                    <option value="">
+                        Geen thema
+                    </option>
+                    <option
+                        v-for="themeOption in themeOptions"
+                        :key="themeOption"
+                        :value="themeOption"
+                    >
+                        {{ themeOption }}
+                    </option>
+                </select>
+
+                <span class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-slate-500">
+                    <svg
+                        aria-hidden="true"
+                        class="h-5 w-5"
+                        viewBox="0 0 20 20"
+                        fill="none"
+                    >
+                        <path
+                            d="M5 7.5L10 12.5L15 7.5"
+                            stroke="currentColor"
+                            stroke-width="1.8"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        />
+                    </svg>
+                </span>
+            </div>
+        </div>
+
+        <div>
+            <label class="mb-2 block text-sm font-medium text-slate-700">
+                Moeilijkheid
+            </label>
+
+            <div class="relative">
+                <select
+                    v-model="difficulty"
+                    :disabled="isGenerating"
+                    :class="selectClass"
+                >
+                    <option value="">
+                        Standaard
+                    </option>
+                    <option
+                        v-for="difficultyOption in difficultyOptions"
+                        :key="difficultyOption"
+                        :value="difficultyOption"
+                    >
+                        {{ difficultyOption }}
+                    </option>
                 </select>
 
                 <span class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-slate-500">

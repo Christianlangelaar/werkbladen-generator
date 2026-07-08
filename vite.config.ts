@@ -12,6 +12,8 @@ type WorksheetRequest = {
   exercise?: string
   amount?: number
   layout?: 'default' | 'compact-arithmetic'
+  theme?: string
+  difficulty?: string
 }
 
 const compactArithmeticQuestionsPerPage = 100
@@ -31,6 +33,44 @@ const storyExercises = new Set([
   'contextsommen',
   'eindtoets-rekenen',
 ])
+const themeSupportedExercises = new Set([
+  'begrijpend-lezen',
+  'contextsommen',
+  'eindtoets-rekenen',
+  'engels-woordenschat',
+  'grammatica',
+  'leestekens',
+  'rijmen',
+  'samenvatten',
+  'spelling',
+  'werkwoordspelling',
+  'woordenschat',
+])
+const themeOptions = new Set([
+  'Voetbal',
+  'Paarden',
+  'Dieren',
+  "Dino's",
+  'Minecraft',
+  'Prinsessen',
+  'Ruimte',
+  "Auto's",
+  'Pokémon',
+])
+const difficultyOptions = new Set([
+  'Makkelijker',
+  'Uitdagender',
+])
+
+function normalizeTheme(theme: unknown, exercise: string) {
+  return typeof theme === 'string' && themeOptions.has(theme) && themeSupportedExercises.has(exercise)
+    ? theme
+    : undefined
+}
+
+function normalizeDifficulty(difficulty: unknown) {
+  return typeof difficulty === 'string' && difficultyOptions.has(difficulty) ? difficulty : undefined
+}
 
 function getDefaultQuestionsPerPage(exercise: string) {
   if (readingExercises.has(exercise)) {
@@ -165,8 +205,17 @@ export default defineConfig({
           }
 
           try {
-            const { group = '4', exercise = 'contextsommen', amount = 10, layout = 'default' } = await readJsonBody(req)
+            const {
+              group = '4',
+              exercise = 'contextsommen',
+              amount = 10,
+              layout = 'default',
+              theme,
+              difficulty,
+            } = await readJsonBody(req)
             const requestedAmount = Number(amount) || 10
+            const safeTheme = normalizeTheme(theme, exercise)
+            const safeDifficulty = normalizeDifficulty(difficulty)
             const maxAmount = layout === 'compact-arithmetic'
               ? compactArithmeticQuestionsPerPage * maxCompactArithmeticPages
               : getDefaultQuestionsPerPage(exercise) * maxDefaultWorksheetPages
@@ -189,7 +238,7 @@ export default defineConfig({
             }
 
             const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-            const prompt = getWorksheetPrompt(group, exercise, safeAmount)
+            const prompt = getWorksheetPrompt(group, exercise, safeAmount, safeTheme, safeDifficulty)
             const response = await openai.responses.create({
               model: process.env.OPENAI_MODEL || 'gpt-5.5',
               input: [

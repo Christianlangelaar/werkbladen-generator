@@ -324,6 +324,8 @@ async function getWorksheetQuestions(
   exercise: string,
   amount: number,
   layout: WorksheetLayout,
+  theme?: string,
+  difficulty?: string,
 ) {
   try {
     const response = await fetch('/api/worksheet', {
@@ -331,7 +333,7 @@ async function getWorksheetQuestions(
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ group, exercise, amount, layout }),
+      body: JSON.stringify({ group, exercise, amount, layout, theme, difficulty }),
     })
 
     if (!response.ok) {
@@ -361,6 +363,8 @@ export async function generateWorksheetPdf(
   exercise: string,
   amount: number,
   layout: WorksheetLayout = isCompactArithmeticExercise(exercise) ? 'compact-arithmetic' : 'default',
+  theme?: string,
+  difficulty?: string,
 ) {
   const maxAmount = layout === 'compact-arithmetic'
     ? compactArithmeticQuestionsPerPage * maxCompactArithmeticPages
@@ -370,7 +374,7 @@ export async function generateWorksheetPdf(
     throw new Error(`Je kunt maximaal ${maxAmount} opdrachten genereren.`)
   }
 
-  const questions = await getWorksheetQuestions(group, exercise, amount, layout)
+  const questions = await getWorksheetQuestions(group, exercise, amount, layout, theme, difficulty)
   const doc = new jsPDF()
 
   if (layout === 'compact-arithmetic') {
