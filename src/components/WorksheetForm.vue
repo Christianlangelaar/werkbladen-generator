@@ -49,7 +49,7 @@ const generationMessages = [
 ] as const
 let generationMessageInterval: number | undefined
 
-const fieldClass = 'w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-950 transition disabled:cursor-wait disabled:bg-slate-50 disabled:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100'
+const fieldClass = 'w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-950 transition disabled:cursor-wait disabled:bg-slate-50 disabled:text-slate-500 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-100'
 const selectClass = `${fieldClass} appearance-none pr-12`
 const themeOptions = [
     'Voetbal',
@@ -651,7 +651,7 @@ async function generatePdf() {
         <button
             type="submit"
             :disabled="isGenerating"
-            class="relative flex w-full items-center justify-center gap-3 overflow-hidden rounded-lg bg-blue-600 px-4 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-wait disabled:bg-blue-500"
+            class="relative flex w-full items-center justify-center gap-3 overflow-hidden rounded-lg bg-emerald-600 px-4 py-3 font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-wait disabled:bg-emerald-500"
         >
             <span
                 v-if="isGenerating"

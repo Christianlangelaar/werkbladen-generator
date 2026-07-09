@@ -190,8 +190,8 @@ function getCompactQuestionParts(question: string) {
 function addHeader(doc: jsPDF, group: string, exercise: string) {
   const pageNumber = doc.getCurrentPageInfo().pageNumber
 
-  doc.setDrawColor(37, 99, 235)
-  doc.setFillColor(37, 99, 235)
+  doc.setDrawColor(5, 150, 105)
+  doc.setFillColor(5, 150, 105)
   doc.roundedRect(pageMargin, 17, 4, 14, 1, 1, 'F')
 
   doc.setFont('helvetica', 'bold')
