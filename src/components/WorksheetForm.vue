@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { generateWorksheetPdf } from '../services/generateWorksheetPdf'
+import { generateWorkbookPdf, generateWorksheetPdf, type WorkbookSection } from '../services/generateWorksheetPdf'
+
+type WorksheetMode = 'worksheet' | 'workbook'
 
 type ExerciseOption = {
     value: string
@@ -13,6 +15,7 @@ type ExerciseOptionGroup = {
 }
 
 type StoredWorksheetSettings = {
+    mode?: WorksheetMode
     group?: string
     exercise?: string
     assignmentAmount?: number
@@ -23,8 +26,11 @@ type StoredWorksheetSettings = {
 
 const defaultGroup = '4'
 const defaultExercise = 'contextsommen'
+const defaultMode: WorksheetMode = 'worksheet'
+const defaultPageCount = 5
 const defaultAssignmentAmount = 10
 const maxWorksheetPages = 5
+const maxWorkbookPages = 25
 const compactArithmeticQuestionsPerPage = 100
 const readingQuestionsPerPage = 7
 const summaryQuestionsPerPage = 4
@@ -32,8 +38,10 @@ const storyQuestionsPerPage = 10
 const standardQuestionsPerPage = 18
 const settingsStorageKey = 'worksheet-generator-settings'
 
+const mode = ref<WorksheetMode>(defaultMode)
 const group = ref(defaultGroup)
 const exercise = ref(defaultExercise)
+const pageCount = ref(defaultPageCount)
 const assignmentAmount = ref(defaultAssignmentAmount)
 const theme = ref('')
 const difficulty = ref('')
@@ -41,12 +49,6 @@ const amountError = ref('')
 const generationError = ref('')
 const isGenerating = ref(false)
 const generationMessage = ref('Werkblad wordt gemaakt...')
-const generationMessages = [
-    'Werkblad wordt gemaakt...',
-    'Opdrachten worden bedacht...',
-    'We zetten alles netjes klaar...',
-    'Werkblad wordt bijna geopend...',
-] as const
 let generationMessageInterval: number | undefined
 
 const fieldClass = 'w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-950 transition disabled:cursor-wait disabled:bg-slate-50 disabled:text-slate-500 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-100'
@@ -198,9 +200,20 @@ const exerciseOptionGroupsByGroup: Record<string, ExerciseOptionGroup[]> = {
         },
     ],
 }
+const workbookExercisesByGroup: Record<string, string[]> = {
+    3: ['contextsommen', 'begrijpend-lezen', 'woordenschat', 'rijmen', 'optellen', 'aftrekken', 'splitsen'],
+    4: ['contextsommen', 'begrijpend-lezen', 'woordenschat', 'spelling', 'optellen', 'aftrekken', 'tafels'],
+    5: ['contextsommen', 'begrijpend-lezen', 'spelling', 'grammatica', 'woordenschat', 'vermenigvuldigen', 'delen'],
+    6: ['contextsommen', 'breuken', 'begrijpend-lezen', 'spelling', 'werkwoordspelling', 'grammatica', 'procenten'],
+    7: ['contextsommen', 'procenten', 'begrijpend-lezen', 'werkwoordspelling', 'grammatica', 'samenvatten', 'breuken'],
+    8: ['contextsommen', 'eindtoets-rekenen', 'begrijpend-lezen', 'werkwoordspelling', 'grammatica', 'samenvatten', 'procenten'],
+}
 const defaultExerciseOptionGroups = exerciseOptionGroupsByGroup[4] as ExerciseOptionGroup[]
 const exerciseOptionGroups = computed(() => exerciseOptionGroupsByGroup[group.value] ?? defaultExerciseOptionGroups)
 const exerciseOptions = computed(() => exerciseOptionGroups.value.flatMap((optionGroup) => optionGroup.options))
+const exerciseLabelByValue = computed(() => new Map(
+    exerciseOptions.value.map((option) => [option.value, option.label]),
+))
 const compactArithmeticExercises = new Set([
     'optellen',
     'aftrekken',
@@ -235,34 +248,103 @@ const themeSupportedExercises = new Set([
     'werkwoordspelling',
     'woordenschat',
 ])
-const questionsPerPage = computed(() => {
-    if (compactArithmeticExercises.has(exercise.value)) {
+const isWorkbookMode = computed(() => mode.value === 'workbook')
+const generationMessages = computed(() => {
+    const outputLabel = isWorkbookMode.value ? 'Werkboekje' : 'Werkblad'
+
+    return [
+        `${outputLabel} wordt gemaakt...`,
+        'Opdrachten worden bedacht...',
+        'We zetten alles netjes klaar...',
+        `${outputLabel} wordt bijna geopend...`,
+    ] as const
+})
+const submitButtonText = computed(() => isWorkbookMode.value ? 'Maak werkboekje' : 'Maak werkblad')
+const workbookExercises = computed(() => workbookExercisesByGroup[group.value] ?? workbookExercisesByGroup[defaultGroup] ?? [])
+
+function getQuestionsPerPage(exerciseValue: string) {
+    if (compactArithmeticExercises.has(exerciseValue)) {
         return compactArithmeticQuestionsPerPage
     }
 
-    if (readingExercises.has(exercise.value)) {
+    if (readingExercises.has(exerciseValue)) {
         return readingQuestionsPerPage
     }
 
-    if (summaryExercises.has(exercise.value)) {
+    if (summaryExercises.has(exerciseValue)) {
         return summaryQuestionsPerPage
     }
 
-    if (storyExercises.has(exercise.value)) {
+    if (storyExercises.has(exerciseValue)) {
         return storyQuestionsPerPage
     }
 
     return standardQuestionsPerPage
-})
+}
+
+function getWorkbookSectionsForPageCount(pageAmount: number) {
+    const exercises = workbookExercises.value
+
+    if (exercises.length === 0) {
+        return []
+    }
+
+    const activePageCount = Math.min(Math.max(Math.trunc(pageAmount), 1), maxWorkbookPages)
+
+    return Array.from({ length: activePageCount }, (_, index) => {
+        const exerciseValue = exercises[index % exercises.length] ?? exercises[0] ?? defaultExercise
+
+        return {
+            exercise: exerciseValue,
+            amount: getQuestionsPerPage(exerciseValue),
+        }
+    }) satisfies WorkbookSection[]
+}
+
+const questionsPerPage = computed(() => getQuestionsPerPage(exercise.value))
+const workbookSections = computed(() => getWorkbookSectionsForPageCount(pageCount.value))
+const workbookAssignmentAmount = computed(() => workbookSections.value.reduce((total, section) => total + section.amount, 0))
 const maxAssignmentAmount = computed(() => questionsPerPage.value * maxWorksheetPages)
-const estimatedPageCount = computed(() => Math.max(1, Math.ceil(assignmentAmount.value / questionsPerPage.value)))
+const estimatedPageCount = computed(() => {
+    if (isWorkbookMode.value) {
+        return pageCount.value
+    }
+
+    return Math.max(1, Math.ceil(assignmentAmount.value / questionsPerPage.value))
+})
+const quantityInputId = computed(() => isWorkbookMode.value ? 'page-count' : 'assignment-amount')
+const quantityLabel = computed(() => isWorkbookMode.value ? "Aantal pagina's" : 'Aantal opdrachten')
+const quantityMax = computed(() => isWorkbookMode.value ? maxWorkbookPages : maxAssignmentAmount.value)
+const quantityValue = computed({
+    get() {
+        return isWorkbookMode.value ? pageCount.value : assignmentAmount.value
+    },
+    set(value: number) {
+        if (isWorkbookMode.value) {
+            pageCount.value = value
+            return
+        }
+
+        assignmentAmount.value = value
+    },
+})
 const amountHelpText = computed(() => {
+    if (isWorkbookMode.value) {
+        const pageLabel = pageCount.value === 1 ? 'pagina' : "pagina's"
+        const exerciseLabels = [...new Set(workbookSections.value.map((section) => (
+            exerciseLabelByValue.value.get(section.exercise) ?? section.exercise
+        )))]
+            .join(', ')
+
+        return `${pageCount.value} ${pageLabel}, gevuld met ongeveer ${workbookAssignmentAmount.value} opdrachten in een mix van ${exerciseLabels}.`
+    }
+
     const assignmentLabel = compactArithmeticExercises.has(exercise.value) ? 'sommen' : 'opdrachten'
     const pageLabel = estimatedPageCount.value === 1 ? 'pagina' : "pagina's"
 
     return `${questionsPerPage.value} ${assignmentLabel} per pagina. ${assignmentAmount.value} ${assignmentLabel} is ongeveer ${estimatedPageCount.value} ${pageLabel}.`
 })
-const supportsTheme = computed(() => themeSupportedExercises.has(exercise.value))
+const supportsTheme = computed(() => isWorkbookMode.value || themeSupportedExercises.has(exercise.value))
 const activeTheme = computed(() => supportsTheme.value ? normalizeTheme(theme.value) : '')
 
 function getFirstExerciseForGroup(groupValue: string) {
@@ -284,6 +366,16 @@ function normalizeAssignmentAmount(value: unknown) {
     return Math.min(Math.max(Math.trunc(numericValue), 1), maxAssignmentAmount.value)
 }
 
+function normalizePageCount(value: unknown) {
+    const numericValue = Number(value)
+
+    if (!Number.isFinite(numericValue)) {
+        return defaultPageCount
+    }
+
+    return Math.min(Math.max(Math.trunc(numericValue), 1), maxWorkbookPages)
+}
+
 function normalizeTheme(value: unknown) {
     return typeof value === 'string' && themeOptions.includes(value as typeof themeOptions[number])
         ? value
@@ -294,6 +386,10 @@ function normalizeDifficulty(value: unknown) {
     return typeof value === 'string' && difficultyOptions.includes(value as typeof difficultyOptions[number])
         ? value
         : ''
+}
+
+function normalizeMode(value: unknown): WorksheetMode {
+    return value === 'workbook' ? 'workbook' : defaultMode
 }
 
 function loadStoredSettings() {
@@ -309,6 +405,7 @@ function loadStoredSettings() {
             ? parsedSettings.group
             : defaultGroup
 
+        mode.value = normalizeMode(parsedSettings.mode)
         group.value = storedGroup
         exercise.value = parsedSettings.exercise && isValidExerciseForGroup(storedGroup, parsedSettings.exercise)
             ? parsedSettings.exercise
@@ -318,6 +415,7 @@ function loadStoredSettings() {
                 ? parsedSettings.pageCount * questionsPerPage.value
                 : undefined)
 
+        pageCount.value = normalizePageCount(parsedSettings.pageCount)
         assignmentAmount.value = normalizeAssignmentAmount(storedAssignmentAmount)
         theme.value = normalizeTheme(parsedSettings.theme)
         difficulty.value = normalizeDifficulty(parsedSettings.difficulty)
@@ -328,8 +426,10 @@ function loadStoredSettings() {
 
 function saveStoredSettings() {
     window.localStorage.setItem(settingsStorageKey, JSON.stringify({
+        mode: mode.value,
         group: group.value,
         exercise: exercise.value,
+        pageCount: normalizePageCount(pageCount.value),
         assignmentAmount: normalizeAssignmentAmount(assignmentAmount.value),
         theme: normalizeTheme(theme.value),
         difficulty: normalizeDifficulty(difficulty.value),
@@ -346,19 +446,21 @@ watch(group, () => {
     }
 })
 
-watch([group, exercise, assignmentAmount, theme, difficulty], saveStoredSettings)
+watch([mode, group, exercise, pageCount, assignmentAmount, theme, difficulty], saveStoredSettings)
 
 function validateAmount() {
-    if (assignmentAmount.value < 1) {
-        amountError.value = 'Kies minimaal 1 opdracht.'
+    if (quantityValue.value < 1) {
+        amountError.value = isWorkbookMode.value ? 'Kies minimaal 1 pagina.' : 'Kies minimaal 1 opdracht.'
 
         return false
     }
 
-    if (assignmentAmount.value > maxAssignmentAmount.value) {
+    if (quantityValue.value > quantityMax.value) {
         const assignmentLabel = compactArithmeticExercises.has(exercise.value) ? 'sommen' : 'opdrachten'
 
-        amountError.value = `Je kunt maximaal ${maxAssignmentAmount.value} ${assignmentLabel} genereren.`
+        amountError.value = isWorkbookMode.value
+            ? `Je kunt maximaal ${maxWorkbookPages} pagina's maken.`
+            : `Je kunt maximaal ${maxAssignmentAmount.value} ${assignmentLabel} genereren.`
 
         return false
     }
@@ -368,7 +470,7 @@ function validateAmount() {
     return true
 }
 
-watch([exercise, assignmentAmount], validateAmount)
+watch([mode, exercise, pageCount, assignmentAmount], validateAmount)
 
 function wait(milliseconds: number) {
     return new Promise((resolve) => {
@@ -379,10 +481,10 @@ function wait(milliseconds: number) {
 function startGenerationMessages() {
     let messageIndex = 0
 
-    generationMessage.value = generationMessages[messageIndex] ?? generationMessages[0]
+    generationMessage.value = generationMessages.value[messageIndex] ?? generationMessages.value[0]
     generationMessageInterval = window.setInterval(() => {
-        messageIndex = (messageIndex + 1) % generationMessages.length
-        generationMessage.value = generationMessages[messageIndex] ?? generationMessages[0]
+        messageIndex = (messageIndex + 1) % generationMessages.value.length
+        generationMessage.value = generationMessages.value[messageIndex] ?? generationMessages.value[0]
     }, 3500)
 }
 
@@ -403,15 +505,24 @@ async function generatePdf() {
     startGenerationMessages()
 
     try {
-        await Promise.all([
-            generateWorksheetPdf(
+        const workbookPdfPromise = isWorkbookMode.value
+            ? generateWorkbookPdf(
+                group.value,
+                workbookSections.value,
+                activeTheme.value || undefined,
+                normalizeDifficulty(difficulty.value) || undefined,
+            )
+            : generateWorksheetPdf(
                 group.value,
                 exercise.value,
                 assignmentAmount.value,
                 compactArithmeticExercises.has(exercise.value) ? 'compact-arithmetic' : 'default',
                 activeTheme.value || undefined,
                 normalizeDifficulty(difficulty.value) || undefined,
-            ),
+            )
+
+        await Promise.all([
+            workbookPdfPromise,
             wait(7600),
         ])
     } catch (error) {
@@ -431,6 +542,36 @@ async function generatePdf() {
         :aria-busy="isGenerating ? 'true' : 'false'"
         @submit.prevent="generatePdf"
     >
+        <div>
+            <label class="mb-2 block text-sm font-medium text-slate-700">
+                Ik wil maken
+            </label>
+
+            <div class="grid grid-cols-2 rounded-lg border border-slate-300 bg-slate-50 p-1">
+                <button
+                    type="button"
+                    :disabled="isGenerating"
+                    class="rounded-md px-3 py-2 text-sm font-semibold transition disabled:cursor-wait"
+                    :class="!isWorkbookMode ? 'bg-white text-emerald-800 shadow-sm' : 'text-slate-600 hover:text-slate-900'"
+                    :aria-pressed="!isWorkbookMode"
+                    @click="mode = 'worksheet'"
+                >
+                    Werkblad
+                </button>
+
+                <button
+                    type="button"
+                    :disabled="isGenerating"
+                    class="rounded-md px-3 py-2 text-sm font-semibold transition disabled:cursor-wait"
+                    :class="isWorkbookMode ? 'bg-white text-emerald-800 shadow-sm' : 'text-slate-600 hover:text-slate-900'"
+                    :aria-pressed="isWorkbookMode"
+                    @click="mode = 'workbook'"
+                >
+                    Werkboekje
+                </button>
+            </div>
+        </div>
+
         <div>
             <label class="mb-2 block text-sm font-medium text-slate-700">
                 Groep
@@ -481,7 +622,7 @@ async function generatePdf() {
             </div>
         </div>
 
-        <div>
+        <div v-if="!isWorkbookMode">
             <label class="mb-2 block text-sm font-medium text-slate-700">
                 Oefensoort
             </label>
@@ -613,17 +754,17 @@ async function generatePdf() {
         <div>
             <label
                 class="mb-2 block text-sm font-medium text-slate-700"
-                for="assignment-amount"
+                :for="quantityInputId"
             >
-                Aantal opdrachten
+                {{ quantityLabel }}
             </label>
 
             <input
-                id="assignment-amount"
-                v-model.number="assignmentAmount"
+                :id="quantityInputId"
+                v-model.number="quantityValue"
                 type="number"
                 min="1"
-                :max="maxAssignmentAmount"
+                :max="quantityMax"
                 :disabled="isGenerating"
                 :class="fieldClass"
                 :aria-invalid="amountError ? 'true' : 'false'"
@@ -663,7 +804,7 @@ async function generatePdf() {
                 aria-live="polite"
                 aria-atomic="true"
             >
-                {{ isGenerating ? generationMessage : 'Maak werkblad' }}
+                {{ isGenerating ? generationMessage : submitButtonText }}
             </span>
 
             <span

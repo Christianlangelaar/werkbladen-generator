@@ -7,6 +7,11 @@ type WorksheetResponse = {
 
 type WorksheetLayout = 'default' | 'compact-arithmetic'
 
+export type WorkbookSection = {
+  exercise: string
+  amount: number
+}
+
 const pageMargin = 20
 const pageWidth = 210
 const pageHeight = 297
@@ -153,6 +158,10 @@ function getWorksheetFileName(group: string, exercise: string) {
   return `groep${group}-${safeExercise || 'werkblad'}.pdf`
 }
 
+function getWorkbookFileName(group: string) {
+  return `groep${group}-werkboekje.pdf`
+}
+
 function cleanQuestionText(question: string) {
   return question
     .replace(/^\d+\.\s*/, '')
@@ -260,9 +269,8 @@ function parseReadingExercise(question: string) {
   }
 }
 
-function addFooter(doc: jsPDF, group: string, exercise: string) {
+function addFooterTitle(doc: jsPDF, worksheetTitle: string) {
   const pageCount = doc.getNumberOfPages()
-  const worksheetTitle = getWorksheetTitle(group, exercise)
 
   for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
     doc.setPage(pageNumber)
@@ -277,6 +285,10 @@ function addFooter(doc: jsPDF, group: string, exercise: string) {
       align: 'right',
     })
   }
+}
+
+function addFooter(doc: jsPDF, group: string, exercise: string) {
+  addFooterTitle(doc, getWorksheetTitle(group, exercise))
 }
 
 function addCompactArithmeticPages(
@@ -377,36 +389,15 @@ async function getWorksheetQuestions(
   }
 }
 
-export async function generateWorksheetPdf(
+function addDefaultExercisePages(
+  doc: jsPDF,
   group: string,
   exercise: string,
-  amount: number,
-  layout: WorksheetLayout = isCompactArithmeticExercise(exercise) ? 'compact-arithmetic' : 'default',
-  theme?: string,
-  difficulty?: string,
+  questions: string[],
+  startOnNewPage = false,
 ) {
-  const maxAmount = layout === 'compact-arithmetic'
-    ? compactArithmeticQuestionsPerPage * maxCompactArithmeticPages
-    : getDefaultQuestionsPerPage(exercise) * maxDefaultWorksheetPages
-
-  if (amount > maxAmount) {
-    throw new Error(`Je kunt maximaal ${maxAmount} opdrachten genereren.`)
-  }
-
-  const questions = await getWorksheetQuestions(group, exercise, amount, layout, theme, difficulty)
-  const doc = new jsPDF()
-
-  if (layout === 'compact-arithmetic') {
-    addCompactArithmeticPages(
-      doc,
-      group,
-      exercise,
-      questions,
-      Math.ceil(amount / compactArithmeticQuestionsPerPage),
-    )
-    addFooter(doc, group, exercise)
-    doc.save(getWorksheetFileName(group, exercise))
-    return
+  if (startOnNewPage) {
+    doc.addPage()
   }
 
   addHeader(doc, group, exercise)
@@ -527,8 +518,83 @@ export async function generateWorksheetPdf(
 
     y += exerciseHeight
   }
+}
 
+export async function generateWorksheetPdf(
+  group: string,
+  exercise: string,
+  amount: number,
+  layout: WorksheetLayout = isCompactArithmeticExercise(exercise) ? 'compact-arithmetic' : 'default',
+  theme?: string,
+  difficulty?: string,
+) {
+  const maxAmount = layout === 'compact-arithmetic'
+    ? compactArithmeticQuestionsPerPage * maxCompactArithmeticPages
+    : getDefaultQuestionsPerPage(exercise) * maxDefaultWorksheetPages
+
+  if (amount > maxAmount) {
+    throw new Error(`Je kunt maximaal ${maxAmount} opdrachten genereren.`)
+  }
+
+  const questions = await getWorksheetQuestions(group, exercise, amount, layout, theme, difficulty)
+  const doc = new jsPDF()
+
+  if (layout === 'compact-arithmetic') {
+    addCompactArithmeticPages(
+      doc,
+      group,
+      exercise,
+      questions,
+      Math.ceil(amount / compactArithmeticQuestionsPerPage),
+    )
+    addFooter(doc, group, exercise)
+    doc.save(getWorksheetFileName(group, exercise))
+    return
+  }
+
+  addDefaultExercisePages(doc, group, exercise, questions)
   addFooter(doc, group, exercise)
-
   doc.save(getWorksheetFileName(group, exercise))
+}
+
+export async function generateWorkbookPdf(
+  group: string,
+  sections: WorkbookSection[],
+  theme?: string,
+  difficulty?: string,
+) {
+  const activeSections = sections.filter((section) => section.amount > 0)
+
+  if (activeSections.length === 0) {
+    throw new Error('Kies minimaal 1 opdracht.')
+  }
+
+  const doc = new jsPDF()
+  let hasPages = false
+
+  for (const section of activeSections) {
+    const layout = isCompactArithmeticExercise(section.exercise) ? 'compact-arithmetic' : 'default'
+    const questions = await getWorksheetQuestions(group, section.exercise, section.amount, layout, theme, difficulty)
+
+    if (layout === 'compact-arithmetic') {
+      if (hasPages) {
+        doc.addPage()
+      }
+
+      addCompactArithmeticPages(
+        doc,
+        group,
+        section.exercise,
+        questions,
+        Math.ceil(section.amount / compactArithmeticQuestionsPerPage),
+      )
+    } else {
+      addDefaultExercisePages(doc, group, section.exercise, questions, hasPages)
+    }
+
+    hasPages = true
+  }
+
+  addFooterTitle(doc, `Groep ${group} | Werkboekje`)
+  doc.save(getWorkbookFileName(group))
 }
