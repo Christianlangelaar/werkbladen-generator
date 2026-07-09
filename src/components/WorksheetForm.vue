@@ -45,7 +45,7 @@ const generationMessages = [
     'Werkblad wordt gemaakt...',
     'Opdrachten worden bedacht...',
     'We zetten alles netjes klaar...',
-    'PDF wordt bijna geopend...',
+    'Werkblad wordt bijna geopend...',
 ] as const
 let generationMessageInterval: number | undefined
 
@@ -417,7 +417,7 @@ async function generatePdf() {
     } catch (error) {
         generationError.value = error instanceof Error
             ? error.message
-            : 'Er ging iets mis met het genereren van de PDF.'
+            : 'Er ging iets mis met het maken van het werkblad.'
     } finally {
         stopGenerationMessages()
         isGenerating.value = false
@@ -663,7 +663,7 @@ async function generatePdf() {
                 aria-live="polite"
                 aria-atomic="true"
             >
-                {{ isGenerating ? generationMessage : 'Genereer PDF' }}
+                {{ isGenerating ? generationMessage : 'Maak werkblad' }}
             </span>
 
             <span
