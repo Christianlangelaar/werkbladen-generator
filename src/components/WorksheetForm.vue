@@ -15,6 +15,7 @@ type ExerciseOptionGroup = {
 type StoredWorksheetSettings = {
     group?: string
     exercise?: string
+    assignmentAmount?: number
     pageCount?: number
     theme?: string
     difficulty?: string
@@ -22,8 +23,8 @@ type StoredWorksheetSettings = {
 
 const defaultGroup = '4'
 const defaultExercise = 'contextsommen'
-const defaultPageCount = 1
-const maxPageCount = 5
+const defaultAssignmentAmount = 10
+const maxWorksheetPages = 5
 const compactArithmeticQuestionsPerPage = 100
 const readingQuestionsPerPage = 7
 const summaryQuestionsPerPage = 4
@@ -33,7 +34,7 @@ const settingsStorageKey = 'worksheet-generator-settings'
 
 const group = ref(defaultGroup)
 const exercise = ref(defaultExercise)
-const pageCount = ref(defaultPageCount)
+const assignmentAmount = ref(defaultAssignmentAmount)
 const theme = ref('')
 const difficulty = ref('')
 const amountError = ref('')
@@ -253,11 +254,13 @@ const questionsPerPage = computed(() => {
 
     return standardQuestionsPerPage
 })
-const generatedAmount = computed(() => pageCount.value * questionsPerPage.value)
-const pageCountHelpText = computed(() => {
+const maxAssignmentAmount = computed(() => questionsPerPage.value * maxWorksheetPages)
+const estimatedPageCount = computed(() => Math.max(1, Math.ceil(assignmentAmount.value / questionsPerPage.value)))
+const amountHelpText = computed(() => {
     const assignmentLabel = compactArithmeticExercises.has(exercise.value) ? 'sommen' : 'opdrachten'
+    const pageLabel = estimatedPageCount.value === 1 ? 'pagina' : "pagina's"
 
-    return `Ongeveer ${generatedAmount.value} ${assignmentLabel} in compacte A4-indeling.`
+    return `${questionsPerPage.value} ${assignmentLabel} per pagina. ${assignmentAmount.value} ${assignmentLabel} is ongeveer ${estimatedPageCount.value} ${pageLabel}.`
 })
 const supportsTheme = computed(() => themeSupportedExercises.has(exercise.value))
 const activeTheme = computed(() => supportsTheme.value ? normalizeTheme(theme.value) : '')
@@ -271,14 +274,14 @@ function isValidExerciseForGroup(groupValue: string, exerciseValue: string) {
         ?.some((optionGroup) => optionGroup.options.some((option) => option.value === exerciseValue)) ?? false
 }
 
-function normalizePageCount(value: unknown) {
+function normalizeAssignmentAmount(value: unknown) {
     const numericValue = Number(value)
 
     if (!Number.isFinite(numericValue)) {
-        return defaultPageCount
+        return defaultAssignmentAmount
     }
 
-    return Math.min(Math.max(Math.trunc(numericValue), 1), maxPageCount)
+    return Math.min(Math.max(Math.trunc(numericValue), 1), maxAssignmentAmount.value)
 }
 
 function normalizeTheme(value: unknown) {
@@ -310,7 +313,12 @@ function loadStoredSettings() {
         exercise.value = parsedSettings.exercise && isValidExerciseForGroup(storedGroup, parsedSettings.exercise)
             ? parsedSettings.exercise
             : getFirstExerciseForGroup(storedGroup)
-        pageCount.value = normalizePageCount(parsedSettings.pageCount)
+        const storedAssignmentAmount = parsedSettings.assignmentAmount
+            ?? (typeof parsedSettings.pageCount === 'number'
+                ? parsedSettings.pageCount * questionsPerPage.value
+                : undefined)
+
+        assignmentAmount.value = normalizeAssignmentAmount(storedAssignmentAmount)
         theme.value = normalizeTheme(parsedSettings.theme)
         difficulty.value = normalizeDifficulty(parsedSettings.difficulty)
     } catch {
@@ -322,7 +330,7 @@ function saveStoredSettings() {
     window.localStorage.setItem(settingsStorageKey, JSON.stringify({
         group: group.value,
         exercise: exercise.value,
-        pageCount: normalizePageCount(pageCount.value),
+        assignmentAmount: normalizeAssignmentAmount(assignmentAmount.value),
         theme: normalizeTheme(theme.value),
         difficulty: normalizeDifficulty(difficulty.value),
     }))
@@ -338,11 +346,19 @@ watch(group, () => {
     }
 })
 
-watch([group, exercise, pageCount, theme, difficulty], saveStoredSettings)
+watch([group, exercise, assignmentAmount, theme, difficulty], saveStoredSettings)
 
 function validateAmount() {
-    if (pageCount.value > maxPageCount) {
-        amountError.value = `Je kunt maximaal ${maxPageCount} pagina's genereren.`
+    if (assignmentAmount.value < 1) {
+        amountError.value = 'Kies minimaal 1 opdracht.'
+
+        return false
+    }
+
+    if (assignmentAmount.value > maxAssignmentAmount.value) {
+        const assignmentLabel = compactArithmeticExercises.has(exercise.value) ? 'sommen' : 'opdrachten'
+
+        amountError.value = `Je kunt maximaal ${maxAssignmentAmount.value} ${assignmentLabel} genereren.`
 
         return false
     }
@@ -351,6 +367,8 @@ function validateAmount() {
 
     return true
 }
+
+watch([exercise, assignmentAmount], validateAmount)
 
 function wait(milliseconds: number) {
     return new Promise((resolve) => {
@@ -389,7 +407,7 @@ async function generatePdf() {
             generateWorksheetPdf(
                 group.value,
                 exercise.value,
-                generatedAmount.value,
+                assignmentAmount.value,
                 compactArithmeticExercises.has(exercise.value) ? 'compact-arithmetic' : 'default',
                 activeTheme.value || undefined,
                 normalizeDifficulty(difficulty.value) || undefined,
@@ -595,30 +613,30 @@ async function generatePdf() {
         <div>
             <label
                 class="mb-2 block text-sm font-medium text-slate-700"
-                for="page-count"
+                for="assignment-amount"
             >
-                Aantal pagina's
+                Aantal opdrachten
             </label>
 
             <input
-                id="page-count"
-                v-model.number="pageCount"
+                id="assignment-amount"
+                v-model.number="assignmentAmount"
                 type="number"
                 min="1"
-                :max="maxPageCount"
+                :max="maxAssignmentAmount"
                 :disabled="isGenerating"
                 :class="fieldClass"
                 :aria-invalid="amountError ? 'true' : 'false'"
-                :aria-describedby="amountError ? 'amount-error' : 'page-count-help'"
+                :aria-describedby="amountError ? 'amount-error' : 'amount-help'"
                 @input="validateAmount"
             >
 
             <p
                 v-if="!amountError"
-                id="page-count-help"
+                id="amount-help"
                 class="mt-2 text-sm text-slate-500"
             >
-                {{ pageCountHelpText }}
+                {{ amountHelpText }}
             </p>
 
             <p
