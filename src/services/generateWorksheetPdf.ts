@@ -269,10 +269,13 @@ function parseReadingExercise(question: string) {
   }
 }
 
-function addFooterTitle(doc: jsPDF, worksheetTitle: string) {
+function addFooterTitle(doc: jsPDF, worksheetTitle: string, startPage = 1) {
   const pageCount = doc.getNumberOfPages()
+  const footerPageCount = pageCount - startPage + 1
 
-  for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
+  for (let pageNumber = startPage; pageNumber <= pageCount; pageNumber += 1) {
+    const footerPageNumber = pageNumber - startPage + 1
+
     doc.setPage(pageNumber)
     doc.setDrawColor(226, 232, 240)
     doc.line(pageMargin, pageHeight - 18, pageWidth - pageMargin, pageHeight - 18)
@@ -281,7 +284,7 @@ function addFooterTitle(doc: jsPDF, worksheetTitle: string) {
     doc.setFontSize(9)
     doc.setTextColor(100, 116, 139)
     doc.text(worksheetTitle, pageMargin, pageHeight - 10)
-    doc.text(`Pagina ${pageNumber} van ${pageCount}`, pageWidth - pageMargin, pageHeight - 10, {
+    doc.text(`Pagina ${footerPageNumber} van ${footerPageCount}`, pageWidth - pageMargin, pageHeight - 10, {
       align: 'right',
     })
   }
@@ -289,6 +292,53 @@ function addFooterTitle(doc: jsPDF, worksheetTitle: string) {
 
 function addFooter(doc: jsPDF, group: string, exercise: string) {
   addFooterTitle(doc, getWorksheetTitle(group, exercise))
+}
+
+function addWorkbookCoverPage(doc: jsPDF, group: string, sections: WorkbookSection[], theme?: string) {
+  const exerciseNames = [...new Set(sections.map((section) => formatExerciseName(section.exercise)))]
+  const exerciseText = exerciseNames.join(', ')
+
+  doc.setDrawColor(5, 150, 105)
+  doc.setFillColor(5, 150, 105)
+  doc.roundedRect(pageMargin, 34, 5, 26, 1.5, 1.5, 'F')
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(34)
+  doc.setTextColor(6, 78, 59)
+  doc.text('Werkboekje', pageMargin + 13, 50)
+
+  doc.setFontSize(20)
+  doc.setTextColor(15, 23, 42)
+  doc.text(`Groep ${group}`, pageMargin + 13, 65)
+
+  if (theme) {
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(13)
+    doc.setTextColor(71, 85, 105)
+    doc.text(`Thema: ${theme}`, pageMargin + 13, 78)
+  }
+
+  doc.setDrawColor(167, 243, 208)
+  doc.setFillColor(255, 255, 255)
+  doc.roundedRect(pageMargin, 104, pageWidth - (pageMargin * 2), 54, 4, 4, 'FD')
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(12)
+  doc.setTextColor(6, 95, 70)
+  doc.text('In dit werkboekje oefen je met:', pageMargin + 8, 120)
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(11)
+  doc.setTextColor(51, 65, 85)
+  doc.text(doc.splitTextToSize(exerciseText, pageWidth - (pageMargin * 2) - 16), pageMargin + 8, 133)
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(12)
+  doc.setTextColor(71, 85, 105)
+  doc.text('Naam:', pageMargin, 200)
+  doc.line(pageMargin + 18, 201, pageWidth - pageMargin, 201)
+  doc.text('Datum:', pageMargin, 216)
+  doc.line(pageMargin + 20, 217, pageWidth - pageMargin, 217)
 }
 
 function addCompactArithmeticPages(
@@ -560,6 +610,7 @@ export async function generateWorksheetPdf(
 export async function generateWorkbookPdf(
   group: string,
   sections: WorkbookSection[],
+  includeCoverPage = false,
   theme?: string,
   difficulty?: string,
 ) {
@@ -570,7 +621,11 @@ export async function generateWorkbookPdf(
   }
 
   const doc = new jsPDF()
-  let hasPages = false
+  let hasPages = includeCoverPage
+
+  if (includeCoverPage) {
+    addWorkbookCoverPage(doc, group, activeSections, theme)
+  }
 
   for (const section of activeSections) {
     const layout = isCompactArithmeticExercise(section.exercise) ? 'compact-arithmetic' : 'default'
@@ -595,6 +650,6 @@ export async function generateWorkbookPdf(
     hasPages = true
   }
 
-  addFooterTitle(doc, `Groep ${group} | Werkboekje`)
+  addFooterTitle(doc, `Groep ${group} | Werkboekje`, includeCoverPage ? 2 : 1)
   doc.save(getWorkbookFileName(group))
 }

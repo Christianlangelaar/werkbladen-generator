@@ -20,6 +20,7 @@ type StoredWorksheetSettings = {
     exercise?: string
     assignmentAmount?: number
     pageCount?: number
+    includeCoverPage?: boolean
     theme?: string
     difficulty?: string
 }
@@ -43,13 +44,15 @@ const group = ref(defaultGroup)
 const exercise = ref(defaultExercise)
 const pageCount = ref(defaultPageCount)
 const assignmentAmount = ref(defaultAssignmentAmount)
+const includeCoverPage = ref(false)
 const theme = ref('')
 const difficulty = ref('')
 const amountError = ref('')
 const generationError = ref('')
 const isGenerating = ref(false)
-const generationMessage = ref('Werkblad wordt gemaakt...')
-let generationMessageInterval: number | undefined
+const generationStartedAt = ref(0)
+const elapsedSeconds = ref(0)
+let generationTimer: number | undefined
 
 const fieldClass = 'w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-950 transition disabled:cursor-wait disabled:bg-slate-50 disabled:text-slate-500 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-100'
 const selectClass = `${fieldClass} appearance-none pr-12`
@@ -249,17 +252,13 @@ const themeSupportedExercises = new Set([
     'woordenschat',
 ])
 const isWorkbookMode = computed(() => mode.value === 'workbook')
-const generationMessages = computed(() => {
-    const outputLabel = isWorkbookMode.value ? 'Werkboekje' : 'Werkblad'
-
-    return [
-        `${outputLabel} wordt gemaakt...`,
-        'Opdrachten worden bedacht...',
-        'We zetten alles netjes klaar...',
-        `${outputLabel} wordt bijna geopend...`,
-    ] as const
-})
 const submitButtonText = computed(() => isWorkbookMode.value ? 'Maak werkboekje' : 'Maak werkblad')
+const loadingButtonText = computed(() => {
+    const outputLabel = isWorkbookMode.value ? 'Werkboekje' : 'Werkblad'
+    const elapsedText = elapsedSeconds.value > 0 ? ` ${elapsedSeconds.value} sec` : ''
+
+    return `${outputLabel} maken...${elapsedText}`
+})
 const workbookExercises = computed(() => workbookExercisesByGroup[group.value] ?? workbookExercisesByGroup[defaultGroup] ?? [])
 
 function getQuestionsPerPage(exerciseValue: string) {
@@ -392,6 +391,10 @@ function normalizeMode(value: unknown): WorksheetMode {
     return value === 'workbook' ? 'workbook' : defaultMode
 }
 
+function normalizeBoolean(value: unknown) {
+    return typeof value === 'boolean' ? value : false
+}
+
 function loadStoredSettings() {
     try {
         const storedSettings = window.localStorage.getItem(settingsStorageKey)
@@ -417,6 +420,7 @@ function loadStoredSettings() {
 
         pageCount.value = normalizePageCount(parsedSettings.pageCount)
         assignmentAmount.value = normalizeAssignmentAmount(storedAssignmentAmount)
+        includeCoverPage.value = normalizeBoolean(parsedSettings.includeCoverPage)
         theme.value = normalizeTheme(parsedSettings.theme)
         difficulty.value = normalizeDifficulty(parsedSettings.difficulty)
     } catch {
@@ -431,6 +435,7 @@ function saveStoredSettings() {
         exercise: exercise.value,
         pageCount: normalizePageCount(pageCount.value),
         assignmentAmount: normalizeAssignmentAmount(assignmentAmount.value),
+        includeCoverPage: includeCoverPage.value,
         theme: normalizeTheme(theme.value),
         difficulty: normalizeDifficulty(difficulty.value),
     }))
@@ -446,7 +451,7 @@ watch(group, () => {
     }
 })
 
-watch([mode, group, exercise, pageCount, assignmentAmount, theme, difficulty], saveStoredSettings)
+watch([mode, group, exercise, pageCount, assignmentAmount, includeCoverPage, theme, difficulty], saveStoredSettings)
 
 function validateAmount() {
     if (quantityValue.value < 1) {
@@ -472,26 +477,18 @@ function validateAmount() {
 
 watch([mode, exercise, pageCount, assignmentAmount], validateAmount)
 
-function wait(milliseconds: number) {
-    return new Promise((resolve) => {
-        window.setTimeout(resolve, milliseconds)
-    })
+function startGenerationTimer() {
+    generationStartedAt.value = Date.now()
+    elapsedSeconds.value = 0
+    generationTimer = window.setInterval(() => {
+        elapsedSeconds.value = Math.floor((Date.now() - generationStartedAt.value) / 1000)
+    }, 1000)
 }
 
-function startGenerationMessages() {
-    let messageIndex = 0
-
-    generationMessage.value = generationMessages.value[messageIndex] ?? generationMessages.value[0]
-    generationMessageInterval = window.setInterval(() => {
-        messageIndex = (messageIndex + 1) % generationMessages.value.length
-        generationMessage.value = generationMessages.value[messageIndex] ?? generationMessages.value[0]
-    }, 3500)
-}
-
-function stopGenerationMessages() {
-    if (generationMessageInterval) {
-        window.clearInterval(generationMessageInterval)
-        generationMessageInterval = undefined
+function stopGenerationTimer() {
+    if (generationTimer) {
+        window.clearInterval(generationTimer)
+        generationTimer = undefined
     }
 }
 
@@ -502,13 +499,14 @@ async function generatePdf() {
 
     generationError.value = ''
     isGenerating.value = true
-    startGenerationMessages()
+    startGenerationTimer()
 
     try {
         const workbookPdfPromise = isWorkbookMode.value
             ? generateWorkbookPdf(
                 group.value,
                 workbookSections.value,
+                includeCoverPage.value,
                 activeTheme.value || undefined,
                 normalizeDifficulty(difficulty.value) || undefined,
             )
@@ -521,16 +519,13 @@ async function generatePdf() {
                 normalizeDifficulty(difficulty.value) || undefined,
             )
 
-        await Promise.all([
-            workbookPdfPromise,
-            wait(7600),
-        ])
+        await workbookPdfPromise
     } catch (error) {
         generationError.value = error instanceof Error
             ? error.message
             : 'Er ging iets mis met het maken van het werkblad.'
     } finally {
-        stopGenerationMessages()
+        stopGenerationTimer()
         isGenerating.value = false
     }
 }
@@ -789,6 +784,23 @@ async function generatePdf() {
             </p>
         </div>
 
+        <label
+            v-if="isWorkbookMode"
+            class="flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700"
+        >
+            <input
+                v-model="includeCoverPage"
+                type="checkbox"
+                :disabled="isGenerating"
+                class="mt-0.5 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-100 disabled:cursor-wait"
+            >
+
+            <span>
+                <span class="block font-medium text-slate-800">Voorblad toevoegen</span>
+                <span class="mt-1 block text-slate-500">Met titel, groep, naam en datum.</span>
+            </span>
+        </label>
+
         <button
             type="submit"
             :disabled="isGenerating"
@@ -804,7 +816,7 @@ async function generatePdf() {
                 aria-live="polite"
                 aria-atomic="true"
             >
-                {{ isGenerating ? generationMessage : submitButtonText }}
+                {{ isGenerating ? loadingButtonText : submitButtonText }}
             </span>
 
             <span
