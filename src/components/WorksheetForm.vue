@@ -21,6 +21,7 @@ type StoredWorksheetSettings = {
     assignmentAmount?: number
     pageCount?: number
     includeCoverPage?: boolean
+    includeAnswerSheet?: boolean
     theme?: string
     difficulty?: string
 }
@@ -45,6 +46,7 @@ const exercise = ref(defaultExercise)
 const pageCount = ref(defaultPageCount)
 const assignmentAmount = ref(defaultAssignmentAmount)
 const includeCoverPage = ref(false)
+const includeAnswerSheet = ref(false)
 const theme = ref('')
 const difficulty = ref('')
 const amountError = ref('')
@@ -421,6 +423,7 @@ function loadStoredSettings() {
         pageCount.value = normalizePageCount(parsedSettings.pageCount)
         assignmentAmount.value = normalizeAssignmentAmount(storedAssignmentAmount)
         includeCoverPage.value = normalizeBoolean(parsedSettings.includeCoverPage)
+        includeAnswerSheet.value = normalizeBoolean(parsedSettings.includeAnswerSheet)
         theme.value = normalizeTheme(parsedSettings.theme)
         difficulty.value = normalizeDifficulty(parsedSettings.difficulty)
     } catch {
@@ -436,6 +439,7 @@ function saveStoredSettings() {
         pageCount: normalizePageCount(pageCount.value),
         assignmentAmount: normalizeAssignmentAmount(assignmentAmount.value),
         includeCoverPage: includeCoverPage.value,
+        includeAnswerSheet: includeAnswerSheet.value,
         theme: normalizeTheme(theme.value),
         difficulty: normalizeDifficulty(difficulty.value),
     }))
@@ -451,7 +455,7 @@ watch(group, () => {
     }
 })
 
-watch([mode, group, exercise, pageCount, assignmentAmount, includeCoverPage, theme, difficulty], saveStoredSettings)
+watch([mode, group, exercise, pageCount, assignmentAmount, includeCoverPage, includeAnswerSheet, theme, difficulty], saveStoredSettings)
 
 function validateAmount() {
     if (quantityValue.value < 1) {
@@ -507,6 +511,7 @@ async function generatePdf() {
                 group.value,
                 workbookSections.value,
                 includeCoverPage.value,
+                includeAnswerSheet.value,
                 activeTheme.value || undefined,
                 normalizeDifficulty(difficulty.value) || undefined,
             )
@@ -517,6 +522,7 @@ async function generatePdf() {
                 compactArithmeticExercises.has(exercise.value) ? 'compact-arithmetic' : 'default',
                 activeTheme.value || undefined,
                 normalizeDifficulty(difficulty.value) || undefined,
+                includeAnswerSheet.value,
             )
 
         await workbookPdfPromise
@@ -798,6 +804,20 @@ async function generatePdf() {
             <span>
                 <span class="block font-medium text-slate-800">Voorblad toevoegen</span>
                 <span class="mt-1 block text-slate-500">Met titel, groep, naam en datum.</span>
+            </span>
+        </label>
+
+        <label class="flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+            <input
+                v-model="includeAnswerSheet"
+                type="checkbox"
+                :disabled="isGenerating"
+                class="mt-0.5 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-100 disabled:cursor-wait"
+            >
+
+            <span>
+                <span class="block font-medium text-slate-800">Antwoordenblad toevoegen</span>
+                <span class="mt-1 block text-slate-500">Altijd achteraan in de PDF.</span>
             </span>
         </label>
 

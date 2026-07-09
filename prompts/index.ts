@@ -160,9 +160,15 @@ export function getWorksheetPrompt(
         'Maak de opdrachten passend bij het Nederlandse basisschoolniveau van deze groep.',
         'Geef alleen JSON terug in deze vorm: {"questions":["1. ...","2. ..."]}.',
       ].join(' ')
+  const cleanBasePrompt = basePrompt.replace(/Geef alleen JSON terug in deze vorm: \{.*?\}\./g, '').trim()
   const themeInstruction = getThemeInstruction(theme)
   const difficultyInstruction = getDifficultyInstruction(difficulty)
-  const extraInstructions = [themeInstruction, difficultyInstruction].filter(Boolean)
+  const answerInstruction = [
+    'Geef ook een kort antwoordmodel terug.',
+    'Gebruik precies deze JSON-vorm: {"questions":["1. ...","2. ..."],"answers":["1. ...","2. ..."]}.',
+    'Zorg dat answers evenveel items bevat als questions en dat elk antwoord bij dezelfde opdracht hoort.',
+  ].join(' ')
+  const extraInstructions = [themeInstruction, difficultyInstruction, answerInstruction].filter(Boolean)
 
-  return extraInstructions.length > 0 ? `${basePrompt} ${extraInstructions.join(' ')}` : basePrompt
+  return extraInstructions.length > 0 ? `${cleanBasePrompt} ${extraInstructions.join(' ')}` : cleanBasePrompt
 }

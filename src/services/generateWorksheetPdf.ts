@@ -2,10 +2,21 @@ import { jsPDF } from 'jspdf'
 
 type WorksheetResponse = {
   questions: string[]
+  answers?: string[]
   source?: 'openai' | 'fallback'
 }
 
 type WorksheetLayout = 'default' | 'compact-arithmetic'
+
+type WorksheetContent = {
+  questions: string[]
+  answers: string[]
+}
+
+type AnswerSection = {
+  title: string
+  answers: string[]
+}
 
 export type WorkbookSection = {
   exercise: string
@@ -86,6 +97,60 @@ function fallbackQuestions(amount: number) {
   return Array.from({ length: amount }, (_, index) => `${index + 1}. __________________________________________`)
 }
 
+function fallbackAnswers(amount: number) {
+  return Array.from({ length: amount }, (_, index) => `${index + 1}. Antwoord niet beschikbaar.`)
+}
+
+function fallbackReadingContent(amount: number): WorksheetContent {
+  const readingItems = [
+    {
+      text: 'Mila zet haar tas bij de deur. Daarna pakt ze haar broodtrommel en loopt ze naar school.',
+      question: 'Waar zet Mila haar tas?',
+      answer: 'Bij de deur.',
+    },
+    {
+      text: 'In de tuin staat een kleine boom. Sam geeft de boom water, omdat de grond erg droog is.',
+      question: 'Waarom geeft Sam de boom water?',
+      answer: 'Omdat de grond erg droog is.',
+    },
+    {
+      text: 'Noor leest een boek op de bank. Als het donker wordt, doet ze de lamp aan.',
+      question: 'Wat doet Noor als het donker wordt?',
+      answer: 'Ze doet de lamp aan.',
+    },
+    {
+      text: 'De klas gaat naar de bibliotheek. Iedereen mag een boek kiezen om mee naar huis te nemen.',
+      question: 'Waar gaat de klas naartoe?',
+      answer: 'Naar de bibliotheek.',
+    },
+  ]
+  const fallbackItem = readingItems[0] as typeof readingItems[number]
+  const items = Array.from({ length: amount }, (_, index) => {
+    const item = readingItems[index % readingItems.length] ?? fallbackItem
+
+    return {
+      question: `${index + 1}. ${item.text}\n${item.question}`,
+      answer: `${index + 1}. ${item.answer}`,
+    }
+  })
+
+  return {
+    questions: items.map((item) => item.question),
+    answers: items.map((item) => item.answer),
+  }
+}
+
+function fallbackDefaultContent(exercise: string, amount: number): WorksheetContent {
+  if (readingExercises.has(exercise)) {
+    return fallbackReadingContent(amount)
+  }
+
+  return {
+    questions: fallbackQuestions(amount),
+    answers: fallbackAnswers(amount),
+  }
+}
+
 function fallbackCompactArithmeticQuestions(group: string, exercise: string, amount: number) {
   const groupNumber = Number(group) || 4
 
@@ -137,6 +202,86 @@ function fallbackCompactArithmeticQuestions(group: string, exercise: string, amo
 
     return `${index + 1}. ${left} + ${right} = ...`
   })
+}
+
+function getCompactArithmeticQuestionAndAnswer(group: string, exercise: string, index: number) {
+  const groupNumber = Number(group) || 4
+  const seed = index + 1
+  const smallA = ((seed * 7) % 9) + 1
+  const smallB = ((seed * 5) % 9) + 1
+  const mediumA = ((seed * 17) % 89) + 10
+  const mediumB = ((seed * 13) % 89) + 10
+  const largeA = ((seed * 197) % 8_900) + 1_000
+  const largeB = ((seed * 131) % 8_900) + 1_000
+
+  if (exercise === 'aftrekken' || exercise === 'aftrekken-grote-getallen') {
+    const left = exercise === 'aftrekken-grote-getallen' ? Math.max(largeA, largeB) : Math.max(mediumA, mediumB)
+    const right = exercise === 'aftrekken-grote-getallen' ? Math.min(largeA, largeB) : Math.min(mediumA, mediumB)
+
+    return {
+      question: `${index + 1}. ${left} - ${right} = ...`,
+      answer: `${index + 1}. ${left - right}`,
+    }
+  }
+
+  if (exercise === 'tafels' || exercise === 'vermenigvuldigen') {
+    const left = groupNumber <= 4 ? smallA : ((seed * 11) % 12) + 1
+    const right = groupNumber <= 4 ? smallB : ((seed * 3) % 12) + 1
+
+    return {
+      question: `${index + 1}. ${left} x ${right} = ...`,
+      answer: `${index + 1}. ${left * right}`,
+    }
+  }
+
+  if (exercise === 'delen') {
+    const divisor = smallA
+    const answer = groupNumber <= 5 ? smallB : ((seed * 11) % 12) + 1
+
+    return {
+      question: `${index + 1}. ${divisor * answer} : ${divisor} = ...`,
+      answer: `${index + 1}. ${answer}`,
+    }
+  }
+
+  if (exercise === 'tafel-automatiseren') {
+    return seed % 3 === 0
+      ? {
+          question: `${index + 1}. ${smallA * smallB} : ${smallA} = ...`,
+          answer: `${index + 1}. ${smallB}`,
+        }
+      : {
+          question: `${index + 1}. ${smallA} x ${smallB} = ...`,
+          answer: `${index + 1}. ${smallA * smallB}`,
+        }
+  }
+
+  if (exercise === 'splitsen') {
+    const total = groupNumber <= 3 ? ((seed * 7) % 20) + 1 : ((seed * 7) % 100) + 1
+    const part = seed % total
+
+    return {
+      question: `${index + 1}. ${part} + ... = ${total}`,
+      answer: `${index + 1}. ${total - part}`,
+    }
+  }
+
+  const left = exercise === 'optellen-grote-getallen' ? largeA : mediumA
+  const right = exercise === 'optellen-grote-getallen' ? largeB : mediumB
+
+  return {
+    question: `${index + 1}. ${left} + ${right} = ...`,
+    answer: `${index + 1}. ${left + right}`,
+  }
+}
+
+function fallbackCompactArithmeticContent(group: string, exercise: string, amount: number): WorksheetContent {
+  const items = Array.from({ length: amount }, (_, index) => getCompactArithmeticQuestionAndAnswer(group, exercise, index))
+
+  return {
+    questions: items.map((item) => item.question),
+    answers: items.map((item) => item.answer),
+  }
 }
 
 function formatExerciseName(exercise: string) {
@@ -341,6 +486,71 @@ function addWorkbookCoverPage(doc: jsPDF, group: string, sections: WorkbookSecti
   doc.line(pageMargin + 20, 217, pageWidth - pageMargin, 217)
 }
 
+function addAnswerSheet(doc: jsPDF, title: string, sections: AnswerSection[]) {
+  doc.addPage()
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(22)
+  doc.setTextColor(15, 23, 42)
+  doc.text('Antwoorden', pageMargin, 27)
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(10)
+  doc.setTextColor(71, 85, 105)
+  doc.text(title, pageMargin, 35)
+
+  doc.setDrawColor(226, 232, 240)
+  doc.line(pageMargin, 41, pageWidth - pageMargin, 41)
+
+  let y = 54
+
+  for (const section of sections) {
+    if (y > pageBottom - 24) {
+      doc.addPage()
+      y = 28
+    }
+
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(12)
+    doc.setTextColor(6, 95, 70)
+    doc.text(section.title, pageMargin, y)
+    y += 8
+
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(10)
+    doc.setTextColor(15, 23, 42)
+
+    for (const answer of section.answers) {
+      const answerLines = doc.splitTextToSize(answer, questionMaxWidth) as string[]
+      const answerHeight = answerLines.length * 5
+
+      if (y + answerHeight > pageBottom) {
+        doc.addPage()
+        y = 28
+      }
+
+      doc.text(answerLines, pageMargin, y)
+      y += answerHeight + 3
+    }
+
+    y += 5
+  }
+}
+
+function addAnswerFooter(doc: jsPDF, startPage: number) {
+  const pageCount = doc.getNumberOfPages()
+
+  for (let pageNumber = startPage; pageNumber <= pageCount; pageNumber += 1) {
+    doc.setPage(pageNumber)
+    doc.setDrawColor(226, 232, 240)
+    doc.line(pageMargin, pageHeight - 18, pageWidth - pageMargin, pageHeight - 18)
+
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    doc.setTextColor(100, 116, 139)
+    doc.text('Antwoordenblad', pageMargin, pageHeight - 10)
+  }
+}
+
 function addCompactArithmeticPages(
   doc: jsPDF,
   group: string,
@@ -407,7 +617,7 @@ async function getWorksheetQuestions(
   layout: WorksheetLayout,
   theme?: string,
   difficulty?: string,
-) {
+) : Promise<WorksheetContent> {
   try {
     const response = await fetch('/api/worksheet', {
       method: 'POST',
@@ -424,18 +634,21 @@ async function getWorksheetQuestions(
     const data = (await response.json()) as WorksheetResponse
 
     if (data.questions.length > 0) {
-      return data.questions
+      return {
+        questions: data.questions,
+        answers: data.answers && data.answers.length > 0 ? data.answers : fallbackAnswers(data.questions.length),
+      }
     }
 
     return layout === 'compact-arithmetic'
-      ? fallbackCompactArithmeticQuestions(group, exercise, amount)
-      : fallbackQuestions(amount)
+      ? fallbackCompactArithmeticContent(group, exercise, amount)
+      : fallbackDefaultContent(exercise, amount)
   } catch {
     if (layout === 'compact-arithmetic') {
-      return fallbackCompactArithmeticQuestions(group, exercise, amount)
+      return fallbackCompactArithmeticContent(group, exercise, amount)
     }
 
-    return fallbackQuestions(amount)
+    return fallbackDefaultContent(exercise, amount)
   }
 }
 
@@ -577,6 +790,7 @@ export async function generateWorksheetPdf(
   layout: WorksheetLayout = isCompactArithmeticExercise(exercise) ? 'compact-arithmetic' : 'default',
   theme?: string,
   difficulty?: string,
+  includeAnswerSheet = false,
 ) {
   const maxAmount = layout === 'compact-arithmetic'
     ? compactArithmeticQuestionsPerPage * maxCompactArithmeticPages
@@ -586,7 +800,7 @@ export async function generateWorksheetPdf(
     throw new Error(`Je kunt maximaal ${maxAmount} opdrachten genereren.`)
   }
 
-  const questions = await getWorksheetQuestions(group, exercise, amount, layout, theme, difficulty)
+  const content = await getWorksheetQuestions(group, exercise, amount, layout, theme, difficulty)
   const doc = new jsPDF()
 
   if (layout === 'compact-arithmetic') {
@@ -594,16 +808,36 @@ export async function generateWorksheetPdf(
       doc,
       group,
       exercise,
-      questions,
+      content.questions,
       Math.ceil(amount / compactArithmeticQuestionsPerPage),
     )
     addFooter(doc, group, exercise)
+    const answerStartPage = doc.getNumberOfPages() + 1
+
+    if (includeAnswerSheet) {
+      addAnswerSheet(doc, getWorksheetTitle(group, exercise), [{
+        title: formatExerciseName(exercise),
+        answers: content.answers,
+      }])
+      addAnswerFooter(doc, answerStartPage)
+    }
+
     doc.save(getWorksheetFileName(group, exercise))
     return
   }
 
-  addDefaultExercisePages(doc, group, exercise, questions)
+  addDefaultExercisePages(doc, group, exercise, content.questions)
   addFooter(doc, group, exercise)
+  const answerStartPage = doc.getNumberOfPages() + 1
+
+  if (includeAnswerSheet) {
+    addAnswerSheet(doc, getWorksheetTitle(group, exercise), [{
+      title: formatExerciseName(exercise),
+      answers: content.answers,
+    }])
+    addAnswerFooter(doc, answerStartPage)
+  }
+
   doc.save(getWorksheetFileName(group, exercise))
 }
 
@@ -611,6 +845,7 @@ export async function generateWorkbookPdf(
   group: string,
   sections: WorkbookSection[],
   includeCoverPage = false,
+  includeAnswerSheet = false,
   theme?: string,
   difficulty?: string,
 ) {
@@ -622,6 +857,7 @@ export async function generateWorkbookPdf(
 
   const doc = new jsPDF()
   let hasPages = includeCoverPage
+  const answerSections: AnswerSection[] = []
 
   if (includeCoverPage) {
     addWorkbookCoverPage(doc, group, activeSections, theme)
@@ -629,7 +865,12 @@ export async function generateWorkbookPdf(
 
   for (const section of activeSections) {
     const layout = isCompactArithmeticExercise(section.exercise) ? 'compact-arithmetic' : 'default'
-    const questions = await getWorksheetQuestions(group, section.exercise, section.amount, layout, theme, difficulty)
+    const content = await getWorksheetQuestions(group, section.exercise, section.amount, layout, theme, difficulty)
+
+    answerSections.push({
+      title: formatExerciseName(section.exercise),
+      answers: content.answers,
+    })
 
     if (layout === 'compact-arithmetic') {
       if (hasPages) {
@@ -640,16 +881,23 @@ export async function generateWorkbookPdf(
         doc,
         group,
         section.exercise,
-        questions,
+        content.questions,
         Math.ceil(section.amount / compactArithmeticQuestionsPerPage),
       )
     } else {
-      addDefaultExercisePages(doc, group, section.exercise, questions, hasPages)
+      addDefaultExercisePages(doc, group, section.exercise, content.questions, hasPages)
     }
 
     hasPages = true
   }
 
   addFooterTitle(doc, `Groep ${group} | Werkboekje`, includeCoverPage ? 2 : 1)
+  const answerStartPage = doc.getNumberOfPages() + 1
+
+  if (includeAnswerSheet) {
+    addAnswerSheet(doc, `Groep ${group} | Werkboekje`, answerSections)
+    addAnswerFooter(doc, answerStartPage)
+  }
+
   doc.save(getWorkbookFileName(group))
 }
