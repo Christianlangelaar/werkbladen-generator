@@ -38,6 +38,7 @@ const readingQuestionsPerPage = 7
 const summaryQuestionsPerPage = 4
 const storyQuestionsPerPage = 10
 const standardQuestionsPerPage = 18
+const countingQuestionsPerPage = 6
 const settingsStorageKey = 'worksheet-generator-settings'
 
 const mode = ref<WorksheetMode>(defaultMode)
@@ -74,6 +75,22 @@ const difficultyOptions = [
     'Uitdagender',
 ] as const
 const exerciseOptionGroupsByGroup: Record<string, ExerciseOptionGroup[]> = {
+    1: [
+        {
+            label: 'Rekenen',
+            options: [
+                { value: 'tellen', label: 'Tellen' },
+            ],
+        },
+    ],
+    2: [
+        {
+            label: 'Rekenen',
+            options: [
+                { value: 'tellen', label: 'Tellen' },
+            ],
+        },
+    ],
     3: [
         {
             label: 'Rekenen',
@@ -206,6 +223,8 @@ const exerciseOptionGroupsByGroup: Record<string, ExerciseOptionGroup[]> = {
     ],
 }
 const workbookExercisesByGroup: Record<string, string[]> = {
+    1: ['tellen'],
+    2: ['tellen'],
     3: ['contextsommen', 'begrijpend-lezen', 'woordenschat', 'rijmen', 'optellen', 'aftrekken', 'splitsen'],
     4: ['contextsommen', 'begrijpend-lezen', 'woordenschat', 'spelling', 'optellen', 'aftrekken', 'tafels'],
     5: ['contextsommen', 'begrijpend-lezen', 'spelling', 'grammatica', 'woordenschat', 'vermenigvuldigen', 'delen'],
@@ -264,6 +283,9 @@ const loadingButtonText = computed(() => {
 const workbookExercises = computed(() => workbookExercisesByGroup[group.value] ?? workbookExercisesByGroup[defaultGroup] ?? [])
 
 function getQuestionsPerPage(exerciseValue: string) {
+    if (exerciseValue === 'tellen') {
+        return countingQuestionsPerPage
+    }
     if (compactArithmeticExercises.has(exerciseValue)) {
         return compactArithmeticQuestionsPerPage
     }
@@ -340,12 +362,15 @@ const amountHelpText = computed(() => {
         return `${pageCount.value} ${pageLabel}, gevuld met ongeveer ${workbookAssignmentAmount.value} opdrachten in een mix van ${exerciseLabels}.`
     }
 
-    const assignmentLabel = compactArithmeticExercises.has(exercise.value) ? 'sommen' : 'opdrachten'
+    const assignmentLabel = exercise.value === 'tellen'
+        ? 'dobbelstenen'
+        : compactArithmeticExercises.has(exercise.value) ? 'sommen' : 'opdrachten'
     const pageLabel = estimatedPageCount.value === 1 ? 'pagina' : "pagina's"
 
     return `${questionsPerPage.value} ${assignmentLabel} per pagina. ${assignmentAmount.value} ${assignmentLabel} is ongeveer ${estimatedPageCount.value} ${pageLabel}.`
 })
 const supportsTheme = computed(() => isWorkbookMode.value || themeSupportedExercises.has(exercise.value))
+const supportsDifficulty = computed(() => isWorkbookMode.value || exercise.value !== 'tellen')
 const activeTheme = computed(() => supportsTheme.value ? normalizeTheme(theme.value) : '')
 
 function getFirstExerciseForGroup(groupValue: string) {
@@ -465,7 +490,9 @@ function validateAmount() {
     }
 
     if (quantityValue.value > quantityMax.value) {
-        const assignmentLabel = compactArithmeticExercises.has(exercise.value) ? 'sommen' : 'opdrachten'
+        const assignmentLabel = exercise.value === 'tellen'
+            ? 'dobbelstenen'
+            : compactArithmeticExercises.has(exercise.value) ? 'sommen' : 'opdrachten'
 
         amountError.value = isWorkbookMode.value
             ? `Je kunt maximaal ${maxWorkbookPages} pagina's maken.`
@@ -584,6 +611,12 @@ async function generatePdf() {
                     :disabled="isGenerating"
                     :class="selectClass"
                 >
+                    <option value="1">
+                        Groep 1
+                    </option>
+                    <option value="2">
+                        Groep 2
+                    </option>
                     <option value="3">
                         Groep 3
                     </option>
@@ -710,7 +743,7 @@ async function generatePdf() {
             </div>
         </div>
 
-        <div>
+        <div v-if="supportsDifficulty">
             <label class="mb-2 block text-sm font-medium text-slate-700">
                 Moeilijkheid
             </label>

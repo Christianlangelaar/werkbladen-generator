@@ -6,7 +6,7 @@ type WorksheetResponse = {
   source?: 'openai' | 'fallback'
 }
 
-type WorksheetLayout = 'default' | 'compact-arithmetic'
+type WorksheetLayout = 'default' | 'compact-arithmetic' | 'counting'
 
 type WorksheetContent = {
   questions: string[]
@@ -37,6 +37,7 @@ const readingQuestionsPerPage = 7
 const summaryQuestionsPerPage = 4
 const storyQuestionsPerPage = 10
 const standardQuestionsPerPage = 18
+const countingQuestionsPerPage = 6
 const compactArithmeticExercises = new Set([
   'optellen',
   'aftrekken',
@@ -72,6 +73,9 @@ function isStoryExercise(exercise: string) {
 }
 
 function getDefaultQuestionsPerPage(exercise: string) {
+  if (exercise === 'tellen') {
+    return countingQuestionsPerPage
+  }
   if (readingExercises.has(exercise)) {
     return readingQuestionsPerPage
   }
@@ -610,6 +614,55 @@ function addCompactArithmeticPages(
   }
 }
 
+const diePipPositions: Record<number, [number, number][]> = {
+  1: [[0, 0]],
+  2: [[-1, -1], [1, 1]],
+  3: [[-1, -1], [0, 0], [1, 1]],
+  4: [[-1, -1], [1, -1], [-1, 1], [1, 1]],
+  5: [[-1, -1], [1, -1], [0, 0], [-1, 1], [1, 1]],
+  6: [[-1, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [1, 1]],
+}
+
+function drawDie(doc: jsPDF, x: number, y: number, value: number) {
+  const size = 24
+  doc.setDrawColor(71, 85, 105)
+  doc.setLineWidth(0.7)
+  doc.roundedRect(x, y, size, size, 2, 2, 'S')
+  doc.setFillColor(15, 23, 42)
+  for (const [column, row] of diePipPositions[value] ?? []) {
+    doc.circle(x + 12 + (column * 6.2), y + 12 + (row * 6.2), 1.7, 'F')
+  }
+}
+
+function addCountingPages(doc: jsPDF, group: string, exercise: string, amount: number) {
+  const pageCount = Math.ceil(amount / countingQuestionsPerPage)
+  const rowYs = [53, 88, 123, 158, 193, 228]
+
+  for (let pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
+    if (pageIndex > 0) doc.addPage()
+    addHeader(doc, group, exercise)
+
+    const values = [3, 1, 6, 4, 5, 2]
+    const remaining = Math.min(countingQuestionsPerPage, amount - (pageIndex * countingQuestionsPerPage))
+    for (let row = 0; row < remaining; row += 1) {
+      const y = rowYs[row] ?? 53
+      const value = values[(row + pageIndex) % values.length] ?? 1
+      drawDie(doc, 30, y, value)
+
+      doc.setDrawColor(100, 116, 139)
+      doc.setLineWidth(0.55)
+      for (let circle = 0; circle < 6; circle += 1) {
+        doc.circle(78 + (circle * 18), y + 12, 6.7, 'S')
+      }
+    }
+
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(11)
+    doc.setTextColor(71, 85, 105)
+    doc.text('Hoeveel ogen staan er op de dobbelsteen? Kleur het juiste aantal rondjes.', pageMargin, 267)
+  }
+}
+
 async function getWorksheetQuestions(
   group: string,
   exercise: string,
@@ -792,6 +845,9 @@ export async function generateWorksheetPdf(
   difficulty?: string,
   includeAnswerSheet = false,
 ) {
+  if (exercise === 'tellen') {
+    layout = 'counting'
+  }
   const maxAmount = layout === 'compact-arithmetic'
     ? compactArithmeticQuestionsPerPage * maxCompactArithmeticPages
     : getDefaultQuestionsPerPage(exercise) * maxDefaultWorksheetPages
@@ -800,8 +856,25 @@ export async function generateWorksheetPdf(
     throw new Error(`Je kunt maximaal ${maxAmount} opdrachten genereren.`)
   }
 
-  const content = await getWorksheetQuestions(group, exercise, amount, layout, theme, difficulty)
   const doc = new jsPDF()
+
+  if (layout === 'counting') {
+    addCountingPages(doc, group, exercise, amount)
+    addFooter(doc, group, exercise)
+    if (includeAnswerSheet) {
+      const answers = Array.from({ length: amount }, (_, index) => {
+        const values = [3, 1, 6, 4, 5, 2]
+        return `${index + 1}. ${values[(index % 6 + Math.floor(index / 6)) % 6]}`
+      })
+      const answerStartPage = doc.getNumberOfPages() + 1
+      addAnswerSheet(doc, getWorksheetTitle(group, exercise), [{ title: 'Tellen', answers }])
+      addAnswerFooter(doc, answerStartPage)
+    }
+    doc.save(getWorksheetFileName(group, exercise))
+    return
+  }
+
+  const content = await getWorksheetQuestions(group, exercise, amount, layout, theme, difficulty)
 
   if (layout === 'compact-arithmetic') {
     addCompactArithmeticPages(
