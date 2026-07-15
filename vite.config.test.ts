@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { RequestError, validateWorksheetRequest } from './vite.config'
+import { RequestError, validateWorksheetRequest } from './server/worksheetRequest'
 
 describe('validateWorksheetRequest', () => {
   it('normaliseert een geldig verzoek', () => {

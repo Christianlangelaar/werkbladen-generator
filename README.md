@@ -1,56 +1,44 @@
-# werkbladen-generator
+# Werkbladen Generator
 
-This template should help get you started developing with Vue 3 in Vite.
+Vue/Vite-app voor het maken van Nederlandse basisschoolwerkbladen en werkboekjes als PDF. De opdrachten worden via OpenAI gegenereerd; als de generator niet beschikbaar is, maakt de browser een lokale standaardversie.
 
-## Recommended IDE Setup
+## Lokaal ontwikkelen
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
-
-## Recommended Browser Setup
-
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
-
-## Type Support for `.vue` Imports in TS
-
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
-
-## Customize configuration
-
-See [Vite Configuration Reference](https://vite.dev/config/).
-
-## Project Setup
+Dit project gebruikt Node `24.13.0` via nvm.
 
 ```sh
+nvm use
 npm install
-```
-
-Create `.env.local` from `.env.example` and fill in your OpenAI API key:
-
-```sh
 cp .env.example .env.local
-```
-
-You do not need `vite-plugin-api`. This project uses a small Vite dev-server middleware for `/api/worksheet`, because `vite-plugin-api@1.0.7` only supports Vite 2 while this app uses Vite 8.
-
-### Compile and Hot-Reload for Development
-
-```sh
 npm run dev
 ```
 
-### Type-Check, Compile and Minify for Production
+Vul in `.env.local` minimaal `OPENAI_API_KEY` in. `OPENAI_MODEL` is optioneel en staat standaard op `gpt-5.5`.
 
-```sh
-npm run build
-```
-
-### Lint with [ESLint](https://eslint.org/)
+## Controles
 
 ```sh
 npm run lint
+npm test
+npm run test:e2e
+npm run build
 ```
+
+De Playwright-tests starten een geïsoleerde lokale server zonder OpenAI-sleutel en veroorzaken dus geen API-kosten.
+
+## Deployen naar Vercel
+
+Vercel is de aanbevolen host voor dit project. De Vite-frontend wordt statisch gepubliceerd en [`api/worksheet.ts`](./api/worksheet.ts) wordt automatisch als Node.js Function uitgevoerd. De OpenAI-sleutel komt daardoor nooit in de browser terecht.
+
+1. Push de repository naar een Git-provider.
+2. Importeer de repository in Vercel.
+3. Laat Framework Preset op `Vite`, Build Command op `npm run build` en Output Directory op `dist` staan.
+4. Voeg bij Project Settings → Environment Variables toe:
+   - `OPENAI_API_KEY`
+   - `OPENAI_MODEL` (optioneel)
+5. Voeg de variabelen toe aan Production en desgewenst Preview.
+6. Deploy en maak een testwerkblad.
+
+`vercel.json` stelt de maximale functieduur in op 60 seconden en laat client-side routes terugvallen op `index.html`.
+
+Het gratis Hobby-plan is bedoeld voor persoonlijk, niet-commercieel gebruik. Gebruik voor een professionele of commerciële publicatie het Pro-plan en stel in Vercel een passend uitgavenbudget en waarschuwingen in.
