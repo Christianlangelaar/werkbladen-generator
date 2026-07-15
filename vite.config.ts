@@ -21,6 +21,15 @@ type WorksheetContent = {
   answers: string[]
 }
 
+type ValidatedWorksheetRequest = {
+  group: string
+  exercise: string
+  amount: number
+  layout: 'default' | 'compact-arithmetic'
+  theme?: string
+  difficulty?: string
+}
+
 const compactArithmeticQuestionsPerPage = 100
 const maxCompactArithmeticPages = 5
 const readingQuestionsPerPage = 7
@@ -28,6 +37,26 @@ const summaryQuestionsPerPage = 4
 const storyQuestionsPerPage = 10
 const standardQuestionsPerPage = 18
 const maxDefaultWorksheetPages = 5
+const maxRequestBodyBytes = 16 * 1024
+const compactArithmeticExercises = new Set([
+  'optellen',
+  'aftrekken',
+  'splitsen',
+  'tafels',
+  'optellen-grote-getallen',
+  'aftrekken-grote-getallen',
+  'vermenigvuldigen',
+  'delen',
+  'tafel-automatiseren',
+])
+const exercisesByGroup: Record<string, Set<string>> = {
+  3: new Set(['contextsommen', 'optellen', 'aftrekken', 'splitsen', 'begrijpend-lezen', 'woordenschat', 'rijmen']),
+  4: new Set(['contextsommen', 'optellen', 'aftrekken', 'tafels', 'begrijpend-lezen', 'woordenschat', 'spelling']),
+  5: new Set(['contextsommen', 'optellen-grote-getallen', 'aftrekken-grote-getallen', 'vermenigvuldigen', 'delen', 'tafel-automatiseren', 'begrijpend-lezen', 'woordenschat', 'spelling', 'werkwoordspelling', 'grammatica', 'leestekens']),
+  6: new Set(['contextsommen', 'breuken', 'procenten', 'verhoudingen', 'kommagetallen', 'begrijpend-lezen', 'spelling', 'werkwoordspelling', 'grammatica']),
+  7: new Set(['contextsommen', 'procenten', 'schaal', 'breuken', 'begrijpend-lezen', 'werkwoordspelling', 'grammatica', 'samenvatten', 'engels-woordenschat']),
+  8: new Set(['contextsommen', 'eindtoets-rekenen', 'breuken', 'procenten', 'verhoudingen', 'begrijpend-lezen', 'werkwoordspelling', 'grammatica', 'samenvatten']),
+}
 const readingExercises = new Set([
   'begrijpend-lezen',
 ])
@@ -75,6 +104,72 @@ function normalizeTheme(theme: unknown, exercise: string) {
 
 function normalizeDifficulty(difficulty: unknown) {
   return typeof difficulty === 'string' && difficultyOptions.has(difficulty) ? difficulty : undefined
+}
+
+class RequestError extends Error {
+  constructor(
+    message: string,
+    readonly statusCode = 400,
+  ) {
+    super(message)
+  }
+}
+
+function validateWorksheetRequest(value: unknown): ValidatedWorksheetRequest {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new RequestError('Het verzoek heeft geen geldig formaat.')
+  }
+
+  const request = value as WorksheetRequest
+  const group = request.group ?? '4'
+  const exercise = request.exercise ?? 'contextsommen'
+  const amount = request.amount ?? 10
+  const layout = request.layout ?? 'default'
+
+  if (typeof group !== 'string' || !exercisesByGroup[group]) {
+    throw new RequestError('Kies een geldige groep.')
+  }
+  if (typeof exercise !== 'string' || !exercisesByGroup[group]?.has(exercise)) {
+    throw new RequestError('Kies een geldige oefensoort voor deze groep.')
+  }
+  if (layout !== 'default' && layout !== 'compact-arithmetic') {
+    throw new RequestError('Kies een geldige werkbladindeling.')
+  }
+  if (layout === 'compact-arithmetic' && !compactArithmeticExercises.has(exercise)) {
+    throw new RequestError('Deze oefensoort ondersteunt de compacte indeling niet.')
+  }
+  if (layout === 'default' && compactArithmeticExercises.has(exercise)) {
+    throw new RequestError('Deze oefensoort vereist de compacte indeling.')
+  }
+  if (typeof amount !== 'number' || !Number.isInteger(amount) || amount < 1) {
+    throw new RequestError('Kies een geldig geheel aantal opdrachten.')
+  }
+  if (request.theme !== undefined && (typeof request.theme !== 'string' || !themeOptions.has(request.theme))) {
+    throw new RequestError('Kies een geldig thema.')
+  }
+  if (request.theme && !themeSupportedExercises.has(exercise)) {
+    throw new RequestError('Deze oefensoort ondersteunt geen thema.')
+  }
+  if (request.difficulty !== undefined && (typeof request.difficulty !== 'string' || !difficultyOptions.has(request.difficulty))) {
+    throw new RequestError('Kies een geldige moeilijkheid.')
+  }
+
+  const maxAmount = layout === 'compact-arithmetic'
+    ? compactArithmeticQuestionsPerPage * maxCompactArithmeticPages
+    : getDefaultQuestionsPerPage(exercise) * maxDefaultWorksheetPages
+
+  if (amount > maxAmount) {
+    throw new RequestError(`Je kunt maximaal ${maxAmount} opdrachten genereren.`)
+  }
+
+  return {
+    group,
+    exercise,
+    amount,
+    layout,
+    theme: normalizeTheme(request.theme, exercise),
+    difficulty: normalizeDifficulty(request.difficulty),
+  }
 }
 
 function getDefaultQuestionsPerPage(exercise: string) {
@@ -270,18 +365,31 @@ function sendJson(res: import('node:http').ServerResponse, statusCode: number, b
 }
 
 function readJsonBody(req: import('node:http').IncomingMessage) {
-  return new Promise<WorksheetRequest>((resolve, reject) => {
+  return new Promise<unknown>((resolve, reject) => {
     let body = ''
+    let bodySize = 0
+    let rejected = false
 
     req.on('data', (chunk: Buffer) => {
+      if (rejected) return
+
+      bodySize += chunk.length
+      if (bodySize > maxRequestBodyBytes) {
+        rejected = true
+        reject(new RequestError('Het verzoek is te groot.', 413))
+        return
+      }
+
       body += chunk.toString()
     })
 
     req.on('end', () => {
+      if (rejected) return
+
       try {
         resolve(body ? JSON.parse(body) : {})
-      } catch (error) {
-        reject(error)
+      } catch {
+        reject(new RequestError('Het verzoek bevat geen geldige JSON.'))
       }
     })
 
@@ -298,37 +406,29 @@ export default defineConfig({
       configureServer(server) {
         server.middlewares.use('/api/worksheet', async (req, res) => {
           if (req.method !== 'POST') {
-            sendJson(res, 405, { error: 'Method not allowed' })
+            res.setHeader('Allow', 'POST')
+            sendJson(res, 405, { error: 'Alleen POST-verzoeken zijn toegestaan.' })
             return
           }
 
           try {
-            const {
-              group = '4',
-              exercise = 'contextsommen',
-              amount = 10,
-              layout = 'default',
-              theme,
-              difficulty,
-            } = await readJsonBody(req)
-            const requestedAmount = Number(amount) || 10
-            const safeTheme = normalizeTheme(theme, exercise)
-            const safeDifficulty = normalizeDifficulty(difficulty)
-            const maxAmount = layout === 'compact-arithmetic'
-              ? compactArithmeticQuestionsPerPage * maxCompactArithmeticPages
-              : getDefaultQuestionsPerPage(exercise) * maxDefaultWorksheetPages
-
-            if (requestedAmount > maxAmount) {
-              sendJson(res, 400, { error: `Je kunt maximaal ${maxAmount} opdrachten genereren.` })
-              return
+            if (!req.headers['content-type']?.toLowerCase().startsWith('application/json')) {
+              throw new RequestError('Gebruik application/json als Content-Type.', 415)
             }
 
-            const safeAmount = Math.min(Math.max(requestedAmount, 1), maxAmount)
+            const {
+              group,
+              exercise,
+              amount,
+              layout,
+              theme,
+              difficulty,
+            } = validateWorksheetRequest(await readJsonBody(req))
 
             if (!process.env.OPENAI_API_KEY) {
               const fallbackContent = layout === 'compact-arithmetic'
-                ? fallbackCompactArithmeticContent(group, exercise, safeAmount)
-                : fallbackDefaultContent(exercise, safeAmount)
+                ? fallbackCompactArithmeticContent(group, exercise, amount)
+                : fallbackDefaultContent(exercise, amount)
 
               sendJson(res, 200, {
                 questions: fallbackContent.questions,
@@ -339,7 +439,7 @@ export default defineConfig({
             }
 
             const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-            const prompt = getWorksheetPrompt(group, exercise, safeAmount, safeTheme, safeDifficulty)
+            const prompt = getWorksheetPrompt(group, exercise, amount, theme, difficulty)
             const response = await openai.responses.create({
               model: process.env.OPENAI_MODEL || 'gpt-5.5',
               input: [
@@ -357,24 +457,30 @@ export default defineConfig({
 
             const parsed = JSON.parse(response.output_text) as { questions?: string[], answers?: string[] }
             const generatedQuestions =
-              parsed.questions?.slice(0, safeAmount).map((question, index) => {
+              parsed.questions?.slice(0, amount).map((question, index) => {
                 const cleanQuestion = question.replace(/^\d+\.\s*/, '').trim()
 
                 return `${index + 1}. ${cleanQuestion}`
               }) ?? []
             const generatedAnswers =
-              parsed.answers?.slice(0, safeAmount).map((answer, index) => {
+              parsed.answers?.slice(0, amount).map((answer, index) => {
                 const cleanAnswer = answer.replace(/^\d+\.\s*/, '').trim()
 
                 return `${index + 1}. ${cleanAnswer}`
               }) ?? []
-            const { questions, answers } = padContent(generatedQuestions, generatedAnswers, group, exercise, safeAmount, layout)
+            const { questions, answers } = padContent(generatedQuestions, generatedAnswers, group, exercise, amount, layout)
 
             sendJson(res, 200, { questions, answers, source: 'openai' })
           } catch (error) {
-            const message = error instanceof Error ? error.message : 'Kon werkblad niet genereren.'
+            if (error instanceof RequestError) {
+              sendJson(res, error.statusCode, { error: error.message })
+              return
+            }
 
-            sendJson(res, 500, { error: message })
+            const loggedError = error instanceof Error ? error : new Error('Onbekende fout bij werkbladgeneratie.')
+
+            server.config.logger.error('Werkblad genereren mislukt.', { error: loggedError })
+            sendJson(res, 500, { error: 'Het werkblad kon niet worden gegenereerd. Probeer het later opnieuw.' })
           }
         })
       },
