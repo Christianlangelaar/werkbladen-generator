@@ -1239,7 +1239,7 @@ async function generatePdf() {
         <button
             type="submit"
             :disabled="isGenerating"
-            class="relative flex w-full items-center justify-center gap-3 overflow-hidden rounded-lg bg-emerald-600 px-4 py-3 font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-wait disabled:bg-emerald-500"
+            class="relative flex w-full items-center justify-center gap-3 overflow-hidden rounded-lg bg-emerald-700 px-4 py-3 font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-wait disabled:bg-emerald-700 disabled:opacity-80"
         >
             <span
                 v-if="isGenerating"

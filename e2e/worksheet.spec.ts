@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import AxeBuilder from '@axe-core/playwright'
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => window.localStorage.clear())
@@ -49,9 +50,41 @@ test('blijft bruikbaar op een mobiele viewport', async ({ page }) => {
   const dimensions = await page.evaluate(() => ({
     viewportWidth: window.innerWidth,
     documentWidth: document.documentElement.scrollWidth,
+    formWidth: document.querySelector('form')?.getBoundingClientRect().width ?? 0,
+    fieldWidths: [...document.querySelectorAll('select, input[type="number"], button[type="submit"]')]
+      .map((element) => element.getBoundingClientRect().width),
+    controlHeights: [...document.querySelectorAll('select, input[type="number"], button')]
+      .map((element) => element.getBoundingClientRect().height),
   }))
 
   expect(dimensions.documentWidth).toBeLessThanOrEqual(dimensions.viewportWidth)
+  expect(dimensions.formWidth).toBeGreaterThanOrEqual(280)
+  expect(Math.min(...dimensions.fieldWidths)).toBeGreaterThanOrEqual(280)
+  expect(Math.min(...dimensions.controlHeights)).toBeGreaterThanOrEqual(32)
+})
+
+test('voldoet in beide modi aan de geautomatiseerde toegankelijkheidscontrole', async ({ page }) => {
+  const worksheetResults = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa'])
+    .analyze()
+  expect(worksheetResults.violations).toEqual([])
+
+  await page.getByRole('button', { name: 'Werkboekje', exact: true }).click()
+  const workbookResults = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa'])
+    .analyze()
+  expect(workbookResults.violations).toEqual([])
+})
+
+test('kan de hoofdflow volledig met het toetsenbord bedienen', async ({ page }) => {
+  await page.keyboard.press('Tab')
+  await expect(page.getByRole('button', { name: 'Werkblad', exact: true })).toBeFocused()
+  await page.keyboard.press('Tab')
+  await expect(page.getByRole('button', { name: 'Werkboekje', exact: true })).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('button', { name: 'Werkboekje', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await page.keyboard.press('Tab')
+  await expect(page.getByLabel('Groep', { exact: true })).toBeFocused()
 })
 
 test('bundelt een groot werkboekje per oefensoort en toont voortgang', async ({ page }) => {
