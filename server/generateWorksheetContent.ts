@@ -1,9 +1,9 @@
 import OpenAI from 'openai'
-import { getWorksheetPrompt } from '../prompts'
-import { createCompactArithmeticContent } from '../shared/compactArithmetic'
-import { createFallbackWorksheetContent, type FallbackWorksheetContent } from '../shared/fallbackWorksheet'
-import type { ValidatedWorksheetRequest } from './worksheetRequest'
-import { validateWorksheetPairs } from './worksheetQuality'
+import { getWorksheetPrompt } from '../prompts/index.js'
+import { createCompactArithmeticContent } from '../shared/compactArithmetic.js'
+import { createFallbackWorksheetContent, type FallbackWorksheetContent } from '../shared/fallbackWorksheet.js'
+import type { ValidatedWorksheetRequest } from './worksheetRequest.js'
+import { validateWorksheetPairs } from './worksheetQuality.js'
 
 type GeneratedOutput = {
   outputText: string

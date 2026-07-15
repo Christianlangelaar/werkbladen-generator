@@ -1,6 +1,6 @@
-import { generateWorksheetContent } from '../server/generateWorksheetContent'
-import { RequestError, validateWorksheetRequest } from '../server/worksheetRequest'
-import { checkWorksheetRateLimit, getRateLimitHeaders } from '../server/rateLimit'
+import { generateWorksheetContent } from '../server/generateWorksheetContent.js'
+import { RequestError, validateWorksheetRequest } from '../server/worksheetRequest.js'
+import { checkWorksheetRateLimit, getRateLimitHeaders } from '../server/rateLimit.js'
 
 const maxRequestBodyBytes = 16 * 1024
 const headers = {

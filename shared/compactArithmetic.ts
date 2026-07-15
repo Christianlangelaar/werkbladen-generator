@@ -1,4 +1,4 @@
-import type { FallbackWorksheetContent } from './fallbackWorksheet'
+import type { FallbackWorksheetContent } from './fallbackWorksheet.js'
 
 function getCompactArithmeticItem(group: string, exercise: string, index: number) {
   const groupNumber = Number(group) || 4

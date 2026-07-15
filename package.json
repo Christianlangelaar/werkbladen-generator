@@ -8,7 +8,9 @@
     "build": "run-p type-check \"build-only {@}\" --",
     "preview": "vite preview",
     "build-only": "vite build",
-    "type-check": "vue-tsc --build",
+    "type-check": "run-p type-check:app type-check:api",
+    "type-check:app": "vue-tsc --build",
+    "type-check:api": "tsc --project api/tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
@@ -52,6 +54,6 @@
     "vue-tsc": "^3.3.5"
   },
   "engines": {
-    "node": "^22.18.0 || >=24.12.0"
+    "node": "24.x"
   }
 }
