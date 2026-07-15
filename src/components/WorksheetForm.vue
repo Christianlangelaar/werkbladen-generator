@@ -629,7 +629,9 @@ async function generatePdf() {
         @submit.prevent="generatePdf"
     >
         <div>
-            <label class="mb-2 block text-sm font-medium text-slate-700">
+            <label
+                class="mb-2 block text-sm font-medium text-slate-700"
+            >
                 Ik wil maken
             </label>
 
@@ -659,12 +661,16 @@ async function generatePdf() {
         </div>
 
         <div>
-            <label class="mb-2 block text-sm font-medium text-slate-700">
+            <label
+                for="group"
+                class="mb-2 block text-sm font-medium text-slate-700"
+            >
                 Groep
             </label>
 
             <div class="relative">
                 <select
+                    id="group"
                     v-model="group"
                     :disabled="isGenerating"
                     :class="selectClass"
@@ -715,12 +721,16 @@ async function generatePdf() {
         </div>
 
         <div v-if="!isWorkbookMode">
-            <label class="mb-2 block text-sm font-medium text-slate-700">
+            <label
+                for="exercise"
+                class="mb-2 block text-sm font-medium text-slate-700"
+            >
                 Oefensoort
             </label>
 
             <div class="relative">
                 <select
+                    id="exercise"
                     v-model="exercise"
                     :disabled="isGenerating"
                     :class="selectClass"
@@ -760,12 +770,16 @@ async function generatePdf() {
         </div>
 
         <div v-if="supportsTheme">
-            <label class="mb-2 block text-sm font-medium text-slate-700">
+            <label
+                for="theme"
+                class="mb-2 block text-sm font-medium text-slate-700"
+            >
                 Thema
             </label>
 
             <div class="relative">
                 <select
+                    id="theme"
                     v-model="theme"
                     :disabled="isGenerating"
                     :class="selectClass"
@@ -802,12 +816,16 @@ async function generatePdf() {
         </div>
 
         <div v-if="supportsDifficulty">
-            <label class="mb-2 block text-sm font-medium text-slate-700">
+            <label
+                for="difficulty"
+                class="mb-2 block text-sm font-medium text-slate-700"
+            >
                 Moeilijkheid
             </label>
 
             <div class="relative">
                 <select
+                    id="difficulty"
                     v-model="difficulty"
                     :disabled="isGenerating"
                     :class="selectClass"

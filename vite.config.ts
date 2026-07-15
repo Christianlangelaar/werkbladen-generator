@@ -152,60 +152,6 @@ function fallbackDefaultContent(exercise: string, amount: number, startIndex = 0
   }
 }
 
-function fallbackCompactArithmeticQuestions(group: string, exercise: string, amount: number, startIndex = 0) {
-  const groupNumber = Number(group) || 4
-
-  return Array.from({ length: amount }, (_, index) => {
-    const questionIndex = startIndex + index
-    const seed = questionIndex + 1
-    const smallA = ((seed * 7) % 9) + 1
-    const smallB = ((seed * 5) % 9) + 1
-    const mediumA = ((seed * 17) % 89) + 10
-    const mediumB = ((seed * 13) % 89) + 10
-    const largeA = ((seed * 197) % 8_900) + 1_000
-    const largeB = ((seed * 131) % 8_900) + 1_000
-
-    if (exercise === 'aftrekken' || exercise === 'aftrekken-grote-getallen') {
-      const left = exercise === 'aftrekken-grote-getallen' ? Math.max(largeA, largeB) : Math.max(mediumA, mediumB)
-      const right = exercise === 'aftrekken-grote-getallen' ? Math.min(largeA, largeB) : Math.min(mediumA, mediumB)
-
-      return `${questionIndex + 1}. ${left} - ${right} = ...`
-    }
-
-    if (exercise === 'tafels' || exercise === 'vermenigvuldigen') {
-      const left = groupNumber <= 4 ? smallA : ((seed * 11) % 12) + 1
-      const right = groupNumber <= 4 ? smallB : ((seed * 3) % 12) + 1
-
-      return `${questionIndex + 1}. ${left} x ${right} = ...`
-    }
-
-    if (exercise === 'delen') {
-      const divisor = smallA
-      const answer = groupNumber <= 5 ? smallB : ((seed * 11) % 12) + 1
-
-      return `${questionIndex + 1}. ${divisor * answer} : ${divisor} = ...`
-    }
-
-    if (exercise === 'tafel-automatiseren') {
-      return seed % 3 === 0
-        ? `${questionIndex + 1}. ${smallA * smallB} : ${smallA} = ...`
-        : `${questionIndex + 1}. ${smallA} x ${smallB} = ...`
-    }
-
-    if (exercise === 'splitsen') {
-      const total = groupNumber <= 3 ? ((seed * 7) % 20) + 1 : ((seed * 7) % 100) + 1
-      const part = seed % total
-
-      return `${questionIndex + 1}. ${part} + ... = ${total}`
-    }
-
-    const left = exercise === 'optellen-grote-getallen' ? largeA : mediumA
-    const right = exercise === 'optellen-grote-getallen' ? largeB : mediumB
-
-    return `${questionIndex + 1}. ${left} + ${right} = ...`
-  })
-}
-
 function getCompactArithmeticQuestionAndAnswer(group: string, exercise: string, questionIndex: number) {
   const groupNumber = Number(group) || 4
   const seed = questionIndex + 1
@@ -286,25 +232,6 @@ function fallbackCompactArithmeticContent(group: string, exercise: string, amoun
     questions: items.map((item) => item.question),
     answers: items.map((item) => item.answer),
   }
-}
-
-function padQuestions(
-  questions: string[],
-  group: string,
-  exercise: string,
-  amount: number,
-  layout: WorksheetRequest['layout'],
-) {
-  if (questions.length >= amount) {
-    return questions.slice(0, amount)
-  }
-
-  const missingAmount = amount - questions.length
-  const fallback = layout === 'compact-arithmetic'
-    ? fallbackCompactArithmeticQuestions(group, exercise, missingAmount, questions.length)
-    : fallbackQuestions(missingAmount, questions.length)
-
-  return [...questions, ...fallback]
 }
 
 function padContent(
