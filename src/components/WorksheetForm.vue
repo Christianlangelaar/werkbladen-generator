@@ -304,6 +304,14 @@ const storyExercises = new Set([
     'contextsommen',
     'eindtoets-rekenen',
 ])
+const answerlessExercises = new Set([
+    'cijfers-overtrekken',
+    'lijnen-overtrekken',
+    'raamfiguren',
+    'schaduwen',
+    'spiegelen',
+    'woorden-overtrekken',
+])
 const themeSupportedExercises = new Set([
     'begrijpend-lezen',
     'contextsommen',
@@ -432,6 +440,26 @@ const availableWorkbookExercises = computed(() => {
     return exerciseOptions.value.filter((option) => !selectedExercises.has(option.value))
 })
 const workbookAssignmentAmount = computed(() => workbookSections.value.reduce((total, section) => total + section.amount, 0))
+const estimatedAnswerPageCount = computed(() => {
+    if (!includeAnswerSheet.value) return 0
+
+    const answerPageLoad = workbookSections.value.reduce((total, section) => {
+        if (answerlessExercises.has(section.exercise)) return total
+        const answersPerPage = compactArithmeticExercises.has(section.exercise)
+            ? 80
+            : readingExercises.has(section.exercise) || summaryExercises.has(section.exercise)
+                ? 28
+                : 40
+        return total + (section.amount / answersPerPage)
+    }, 0)
+
+    return Math.max(1, Math.ceil(answerPageLoad))
+})
+const estimatedWorkbookPdfPages = computed(() => (
+    workbookPageCount.value
+    + (includeCoverPage.value ? 1 : 0)
+    + estimatedAnswerPageCount.value
+))
 const maxAssignmentAmount = computed(() => questionsPerPage.value * maxWorksheetPages)
 const estimatedPageCount = computed(() => {
     if (isWorkbookMode.value) {
@@ -911,6 +939,9 @@ async function generatePdf() {
                                     class="w-24 rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-950 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-100"
                                 >
                             </label>
+                            <p class="text-right text-xs text-slate-500">
+                                Ongeveer {{ item.pages * getQuestionsPerPage(item.exercise) }} opdrachten
+                            </p>
                         </div>
                     </div>
                 </li>
@@ -953,12 +984,39 @@ async function generatePdf() {
                 </button>
             </div>
 
-            <p
+            <section
                 id="workbook-summary"
-                class="text-sm text-slate-500"
+                class="rounded-lg border border-emerald-200 bg-emerald-50/70 p-4"
+                aria-labelledby="workbook-summary-title"
             >
-                {{ amountHelpText }} Maximaal {{ maxWorkbookPages }} pagina's.
-            </p>
+                <h3
+                    id="workbook-summary-title"
+                    class="font-medium text-emerald-950"
+                >
+                    Verwachte omvang
+                </h3>
+                <dl class="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+                    <div>
+                        <dt class="text-slate-500">Werkbladen</dt>
+                        <dd class="mt-1 font-semibold text-slate-900">{{ workbookPageCount }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-slate-500">Opdrachten</dt>
+                        <dd class="mt-1 font-semibold text-slate-900">± {{ workbookAssignmentAmount }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-slate-500">Antwoorden</dt>
+                        <dd class="mt-1 font-semibold text-slate-900">± {{ estimatedAnswerPageCount }} pag.</dd>
+                    </div>
+                    <div>
+                        <dt class="text-slate-500">PDF totaal</dt>
+                        <dd class="mt-1 font-semibold text-slate-900">± {{ estimatedWorkbookPdfPages }} pag.</dd>
+                    </div>
+                </dl>
+                <p class="mt-3 text-xs text-slate-500">
+                    Antwoordpagina's zijn een schatting; langere antwoorden kunnen extra ruimte gebruiken.
+                </p>
+            </section>
             <p
                 v-if="amountError"
                 id="amount-error"

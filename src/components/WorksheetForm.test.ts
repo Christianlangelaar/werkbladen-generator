@@ -108,6 +108,21 @@ describe('WorksheetForm', () => {
     expect(stored.workbookItems[0]).toEqual({ exercise: 'contextsommen', pages: 3 })
   })
 
+  it('toont vooraf de verwachte omvang van het werkboek', async () => {
+    const wrapper = mount(WorksheetForm)
+
+    await wrapper.get('button[aria-pressed="false"]').trigger('click')
+    const checkboxes = wrapper.findAll('input[type="checkbox"]')
+    await checkboxes[0]?.setValue(true)
+    await checkboxes[1]?.setValue(true)
+
+    const summary = wrapper.get('#workbook-summary').text()
+    expect(summary).toContain('Werkbladen5')
+    expect(summary).toContain('Opdrachten± 153')
+    expect(summary).toContain('Antwoorden± 3 pag.')
+    expect(summary).toContain('PDF totaal± 9 pag.')
+  })
+
   it('toont een PDF-preview en kan nog een variant maken', async () => {
     const wrapper = mount(WorksheetForm)
 
