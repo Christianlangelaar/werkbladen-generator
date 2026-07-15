@@ -66,7 +66,7 @@ De gestructureerde `worksheet_request`-logs bevatten geen vragen, antwoorden of 
 
 Stel daarnaast een Vercel-uitgavenwaarschuwing en een externe uptimecheck op `/api/health` in. De actuele modeltarieven wijzigen regelmatig; vul ze daarom via omgevingsvariabelen in en leg ze niet vast in de code.
 
-Vervang vóór publieke lancering de tijdelijke beheerderstekst in `public/privacy.html` door de naam en contactgegevens van de verantwoordelijke organisatie of persoon.
+Controleer vóór verdere publieke bekendmaking in Vercel, OpenAI en eventueel Upstash welke bewaartermijnen en verwerkersvoorwaarden voor het gekozen account gelden.
 
 `vercel.json` stelt de maximale functieduur in op 60 seconden en laat client-side routes terugvallen op `index.html`.
 

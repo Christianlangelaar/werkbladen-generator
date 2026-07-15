@@ -15,6 +15,18 @@ test('healthcheck is beschikbaar voor monitoring', async ({ request }) => {
   await expect(response.json()).resolves.toEqual({ status: 'ok' })
 })
 
+test('legt privacy, tijdelijke IP-verwerking en externe verwerkers uit', async ({ page }) => {
+  await page.goto('/privacy.html')
+
+  await expect(page.getByRole('heading', { name: 'Privacy en gegevensgebruik', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'IP-adres en misbruikpreventie', exact: true })).toBeVisible()
+  await expect(page.getByText('Het IP-adres van een verzoek wordt tijdelijk gebruikt om het aantal aanvragen per minuut te beperken.', { exact: false })).toBeVisible()
+  await expect(page.getByText('OpenAI verwerkt deze gegevens om de gevraagde opdrachten te genereren.', { exact: false })).toBeVisible()
+  await expect(page.getByText('Upstash wordt alleen gebruikt voor een tijdelijke, gehashte rate-limitteller', { exact: false })).toBeVisible()
+  await expect(page.getByText('Ontwikkel studio is verantwoordelijk voor deze dienst.', { exact: false })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'ontwikkelstudio@gmail.com', exact: true })).toHaveAttribute('href', 'mailto:ontwikkelstudio@gmail.com')
+})
+
 test('maakt een werkblad en meldt gebruikte fallbackcontent', async ({ page }) => {
   await page.getByLabel('Groep', { exact: true }).selectOption('4')
   await page.getByLabel('Oefensoort', { exact: true }).selectOption('contextsommen')
