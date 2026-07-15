@@ -63,6 +63,7 @@ test('bundelt een groot werkboekje per oefensoort en toont voortgang', async ({ 
 
   await page.getByRole('button', { name: 'Werkboekje', exact: true }).click()
   await page.getByLabel("Aantal pagina's", { exact: true }).fill('25')
+  await page.getByLabel('Antwoordenblad toevoegen', { exact: false }).check()
 
   const downloadPromise = page.waitForEvent('download')
   await page.getByRole('button', { name: 'Maak werkboekje', exact: true }).click()

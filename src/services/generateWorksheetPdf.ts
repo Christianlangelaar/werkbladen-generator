@@ -467,6 +467,10 @@ function addWorkbookCoverPage(doc: jsPDF, group: string, sections: WorkbookSecti
 }
 
 function addAnswerSheet(doc: jsPDF, title: string, sections: AnswerSection[]) {
+  const columnGap = 10
+  const columnWidth = (questionMaxWidth - columnGap) / 2
+  const columnXPositions = [pageMargin, pageMargin + columnWidth + columnGap]
+
   doc.addPage()
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(22)
@@ -483,33 +487,42 @@ function addAnswerSheet(doc: jsPDF, title: string, sections: AnswerSection[]) {
 
   let y = 54
 
+  function addSectionHeading(sectionTitle: string, continued = false) {
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(12)
+    doc.setTextColor(6, 95, 70)
+    doc.text(`${sectionTitle}${continued ? ' (vervolg)' : ''}`, pageMargin, y)
+    y += 8
+
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9.5)
+    doc.setTextColor(15, 23, 42)
+  }
+
   for (const section of sections) {
     if (y > pageBottom - 24) {
       doc.addPage()
       y = 28
     }
 
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(12)
-    doc.setTextColor(6, 95, 70)
-    doc.text(section.title, pageMargin, y)
-    y += 8
+    addSectionHeading(section.title)
 
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(10)
-    doc.setTextColor(15, 23, 42)
+    for (let answerIndex = 0; answerIndex < section.answers.length; answerIndex += 2) {
+      const answers = section.answers.slice(answerIndex, answerIndex + 2)
+      const answerLines = answers.map((answer) => doc.splitTextToSize(answer, columnWidth) as string[])
+      const rowHeight = Math.max(...answerLines.map((lines) => lines.length * 4.6))
 
-    for (const answer of section.answers) {
-      const answerLines = doc.splitTextToSize(answer, questionMaxWidth) as string[]
-      const answerHeight = answerLines.length * 5
-
-      if (y + answerHeight > pageBottom) {
+      if (y + rowHeight > pageBottom) {
         doc.addPage()
         y = 28
+        addSectionHeading(section.title, true)
       }
 
-      doc.text(answerLines, pageMargin, y)
-      y += answerHeight + 3
+      for (const [columnIndex, lines] of answerLines.entries()) {
+        doc.text(lines, columnXPositions[columnIndex] as number, y)
+      }
+
+      y += rowHeight + 3
     }
 
     y += 5
@@ -518,8 +531,11 @@ function addAnswerSheet(doc: jsPDF, title: string, sections: AnswerSection[]) {
 
 function addAnswerFooter(doc: jsPDF, startPage: number) {
   const pageCount = doc.getNumberOfPages()
+  const answerPageCount = pageCount - startPage + 1
 
   for (let pageNumber = startPage; pageNumber <= pageCount; pageNumber += 1) {
+    const answerPageNumber = pageNumber - startPage + 1
+
     doc.setPage(pageNumber)
     doc.setDrawColor(226, 232, 240)
     doc.line(pageMargin, pageHeight - 18, pageWidth - pageMargin, pageHeight - 18)
@@ -528,6 +544,9 @@ function addAnswerFooter(doc: jsPDF, startPage: number) {
     doc.setFontSize(9)
     doc.setTextColor(100, 116, 139)
     doc.text('Antwoordenblad', pageMargin, pageHeight - 10)
+    doc.text(`Pagina ${answerPageNumber} van ${answerPageCount}`, pageWidth - pageMargin, pageHeight - 10, {
+      align: 'right',
+    })
   }
 }
 
