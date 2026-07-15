@@ -55,6 +55,13 @@ export default defineConfig({
     vue(),
     tailwindcss(),
     {
+      name: 'site-metadata',
+      transformIndexHtml(html) {
+        const siteUrl = (process.env.VITE_SITE_URL ?? '').replace(/\/$/, '')
+        return html.replaceAll('%SITE_URL%', siteUrl)
+      },
+    },
+    {
       name: 'worksheet-api',
       configureServer(server) {
         server.middlewares.use('/api/health', (req, res) => {

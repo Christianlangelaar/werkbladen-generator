@@ -41,8 +41,17 @@ Vercel is de aanbevolen host voor dit project. De Vite-frontend wordt statisch g
    - `WORKSHEET_RATE_LIMIT` (optioneel, standaard `20` per minuut)
    - `UPSTASH_REDIS_REST_URL` en `UPSTASH_REDIS_REST_TOKEN` (aanbevolen voor een gedeelde limiter)
    - `OPENAI_INPUT_COST_PER_MILLION_USD` en `OPENAI_OUTPUT_COST_PER_MILLION_USD` (optioneel, voor kostenramingen in logs)
+   - `VITE_SITE_URL` (de publieke URL, voor canonical- en socialmetadata)
 5. Voeg de variabelen toe aan Production en desgewenst Preview.
 6. Deploy en maak een testwerkblad.
+
+Controleer na iedere productie-uitrol de publieke pagina, healthcheck, privacytekst en social preview met:
+
+```sh
+npm run smoke -- https://jouw-domein.nl
+```
+
+Dezelfde controle kan handmatig vanuit GitHub Actions worden gestart via de workflow `Production smoke test`.
 
 Gebruik `/api/health` voor een externe uptimecheck. De worksheet-API geeft iedere response een `X-Request-ID` en `Server-Timing` mee en schrijft gestructureerde JSON-logs met status, duur, oefensoort en uitkomst. Er worden geen IP-adressen of gegenereerde opdrachten gelogd.
 
@@ -56,6 +65,8 @@ De gestructureerde `worksheet_request`-logs bevatten geen vragen, antwoorden of 
 - AI-verbruik: som van `totalTokens` en `estimatedCostUsd`.
 
 Stel daarnaast een Vercel-uitgavenwaarschuwing en een externe uptimecheck op `/api/health` in. De actuele modeltarieven wijzigen regelmatig; vul ze daarom via omgevingsvariabelen in en leg ze niet vast in de code.
+
+Vervang vóór publieke lancering de tijdelijke beheerderstekst in `public/privacy.html` door de naam en contactgegevens van de verantwoordelijke organisatie of persoon.
 
 `vercel.json` stelt de maximale functieduur in op 60 seconden en laat client-side routes terugvallen op `index.html`.
 

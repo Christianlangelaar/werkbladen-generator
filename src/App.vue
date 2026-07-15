@@ -14,6 +14,15 @@ import WorksheetForm from './components/WorksheetForm.vue'
       </p>
 
       <WorksheetForm />
+
+      <footer class="mt-8 border-t border-slate-100 pt-5 text-center text-xs text-slate-500">
+        <a
+          href="/privacy.html"
+          class="font-medium underline decoration-slate-300 underline-offset-4 hover:text-emerald-800"
+        >
+          Privacy en gegevensgebruik
+        </a>
+      </footer>
     </div>
   </main>
 </template>
