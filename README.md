@@ -36,6 +36,8 @@ GitHub Actions voert bij iedere pull request lint, unit/API/PDF-tests, de produc
 
 Vercel is de aanbevolen host voor dit project. De Vite-frontend wordt statisch gepubliceerd en [`api/worksheet.ts`](./api/worksheet.ts) wordt automatisch als Node.js Function uitgevoerd. De OpenAI-sleutel komt daardoor nooit in de browser terecht.
 
+Het productieproject is gekoppeld aan de GitHub-branch `main`: iedere push wordt automatisch gebouwd en na een geslaagde build uitgerold naar [werkbladen-generator.vercel.app](https://werkbladen-generator.vercel.app). GitHub Actions controleert dezelfde commit onafhankelijk met unit-, API-, build- en browsertests.
+
 1. Push de repository naar een Git-provider.
 2. Importeer de repository in Vercel.
 3. Laat Framework Preset op `Vite`, Build Command op `npm run build` en Output Directory op `dist` staan.
