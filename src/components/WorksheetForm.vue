@@ -1300,7 +1300,8 @@ async function generatePdf() {
                         Je PDF is klaar
                     </h2>
                     <p class="mt-1 text-sm text-emerald-800">
-                        {{ generationSourceLabel }} en gedownload.
+                        {{ generationSourceLabel }}, {{ lastGenerationResult.pageCount }}
+                        {{ lastGenerationResult.pageCount === 1 ? 'pagina' : "pagina's" }} en gedownload.
                     </p>
                 </div>
 

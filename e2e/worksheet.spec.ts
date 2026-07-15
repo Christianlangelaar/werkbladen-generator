@@ -18,6 +18,7 @@ test('maakt een werkblad en meldt gebruikte fallbackcontent', async ({ page }) =
   await expect(page.getByRole('status')).toContainText('standaardversie')
   const result = page.getByRole('region', { name: 'Je PDF is klaar' })
   await expect(result.getByText('Standaardcontent gebruikt', { exact: true })).toBeVisible()
+  await expect(result).toContainText('1 pagina')
 
   await page.getByRole('button', { name: 'Bekijk PDF-preview', exact: true }).click()
   await expect(page.getByTitle('Preview van de gemaakte PDF')).toBeVisible()

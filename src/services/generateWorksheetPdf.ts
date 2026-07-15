@@ -24,6 +24,7 @@ export type PdfGenerationResult = {
   source: 'openai' | 'fallback' | 'local'
   warning?: string
   previewUrl: string
+  pageCount: number
 }
 
 export type WorkbookGenerationProgress = {
@@ -77,9 +78,11 @@ function savePdfWithPreview(
 ): PdfGenerationResult {
   const previewUrl = URL.createObjectURL(doc.output('blob'))
 
-  doc.save(fileName)
+  if (import.meta.env.MODE !== 'test') {
+    doc.save(fileName)
+  }
 
-  return { source, warning, previewUrl }
+  return { source, warning, previewUrl, pageCount: doc.getNumberOfPages() }
 }
 
 type AnswerSection = {

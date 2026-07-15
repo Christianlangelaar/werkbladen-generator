@@ -14,8 +14,8 @@ const mockedGenerateWorkbookPdf = vi.mocked(generateWorkbookPdf)
 describe('WorksheetForm', () => {
   beforeEach(() => {
     window.localStorage.clear()
-    mockedGenerateWorksheetPdf.mockResolvedValue({ source: 'openai', previewUrl: 'blob:worksheet' })
-    mockedGenerateWorkbookPdf.mockResolvedValue({ source: 'openai', previewUrl: 'blob:workbook' })
+    mockedGenerateWorksheetPdf.mockResolvedValue({ source: 'openai', previewUrl: 'blob:worksheet', pageCount: 1 })
+    mockedGenerateWorkbookPdf.mockResolvedValue({ source: 'openai', previewUrl: 'blob:workbook', pageCount: 5 })
   })
 
   it('koppelt alle zichtbare selectvelden aan hun labels', () => {
@@ -64,6 +64,7 @@ describe('WorksheetForm', () => {
       source: 'fallback',
       warning: 'Er is standaardcontent gebruikt.',
       previewUrl: 'blob:fallback',
+      pageCount: 1,
     })
     const wrapper = mount(WorksheetForm)
 
