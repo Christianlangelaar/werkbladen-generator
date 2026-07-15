@@ -25,7 +25,7 @@ test('maakt een werkblad en meldt gebruikte fallbackcontent', async ({ page }) =
 
 test('maakt een werkboekje met voorblad en antwoordenblad', async ({ page }) => {
   await page.getByRole('button', { name: 'Werkboekje', exact: true }).click()
-  await page.getByLabel("Aantal pagina's", { exact: true }).fill('2')
+  await page.getByLabel("Contextsommen: pagina's", { exact: true }).fill('2')
   await page.getByLabel('Voorblad toevoegen', { exact: false }).check()
   await page.getByLabel('Antwoordenblad toevoegen', { exact: false }).check()
 
@@ -62,7 +62,15 @@ test('bundelt een groot werkboekje per oefensoort en toont voortgang', async ({ 
   })
 
   await page.getByRole('button', { name: 'Werkboekje', exact: true }).click()
-  await page.getByLabel("Aantal pagina's", { exact: true }).fill('25')
+  await page.getByLabel('Oefensoort toevoegen', { exact: true }).selectOption('aftrekken')
+  await page.getByRole('button', { name: 'Toevoegen', exact: true }).click()
+  await page.getByLabel('Oefensoort toevoegen', { exact: true }).selectOption('tafels')
+  await page.getByRole('button', { name: 'Toevoegen', exact: true }).click()
+  await page.getByLabel("Contextsommen: pagina's", { exact: true }).fill('5')
+  await page.getByLabel("Begrijpend lezen: pagina's", { exact: true }).fill('5')
+  await page.getByLabel("Woordenschat: pagina's", { exact: true }).fill('5')
+  await page.getByLabel("Spelling: pagina's", { exact: true }).fill('5')
+  await page.getByLabel("Optellen: pagina's", { exact: true }).fill('3')
   await page.getByLabel('Antwoordenblad toevoegen', { exact: false }).check()
 
   const downloadPromise = page.waitForEvent('download')

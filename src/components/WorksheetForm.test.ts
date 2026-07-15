@@ -84,6 +84,30 @@ describe('WorksheetForm', () => {
     expect(mockedGenerateWorksheetPdf).not.toHaveBeenCalled()
   })
 
+  it('stelt een werkboek samen met eigen aantallen en volgorde', async () => {
+    const wrapper = mount(WorksheetForm)
+
+    await wrapper.get('button[aria-pressed="false"]').trigger('click')
+    await wrapper.get('input[aria-label="Contextsommen: pagina\'s"]').setValue(2)
+    await wrapper.get('button[aria-label="Contextsommen omlaag"]').trigger('click')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    const sections = mockedGenerateWorkbookPdf.mock.calls[0]?.[1]
+    expect(sections?.[0]?.exercise).toBe('begrijpend-lezen')
+    expect(sections?.[1]).toEqual({ exercise: 'contextsommen', amount: 20 })
+  })
+
+  it('bewaart de samengestelde werkboekonderdelen', async () => {
+    const wrapper = mount(WorksheetForm)
+
+    await wrapper.get('button[aria-pressed="false"]').trigger('click')
+    await wrapper.get('input[aria-label="Contextsommen: pagina\'s"]').setValue(3)
+
+    const stored = JSON.parse(window.localStorage.getItem('worksheet-generator-settings') ?? '{}')
+    expect(stored.workbookItems[0]).toEqual({ exercise: 'contextsommen', pages: 3 })
+  })
+
   it('toont een PDF-preview en kan nog een variant maken', async () => {
     const wrapper = mount(WorksheetForm)
 

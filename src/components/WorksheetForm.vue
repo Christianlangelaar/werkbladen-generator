@@ -18,12 +18,19 @@ type ExerciseOptionGroup = {
     options: ExerciseOption[]
 }
 
+type WorkbookBuilderItem = {
+    id: number
+    exercise: string
+    pages: number
+}
+
 type StoredWorksheetSettings = {
     mode?: WorksheetMode
     group?: string
     exercise?: string
     assignmentAmount?: number
     pageCount?: number
+    workbookItems?: Array<{ exercise?: string, pages?: number }>
     includeCoverPage?: boolean
     includeAnswerSheet?: boolean
     theme?: string
@@ -37,6 +44,7 @@ const defaultPageCount = 5
 const defaultAssignmentAmount = 10
 const maxWorksheetPages = 5
 const maxWorkbookPages = 25
+const maxWorkbookSectionPages = 5
 const compactArithmeticQuestionsPerPage = 100
 const readingQuestionsPerPage = 7
 const summaryQuestionsPerPage = 4
@@ -49,6 +57,9 @@ const mode = ref<WorksheetMode>(defaultMode)
 const group = ref(defaultGroup)
 const exercise = ref(defaultExercise)
 const pageCount = ref(defaultPageCount)
+const workbookItems = ref<WorkbookBuilderItem[]>([])
+const workbookExerciseToAdd = ref('')
+let nextWorkbookItemId = 1
 const assignmentAmount = ref(defaultAssignmentAmount)
 const includeCoverPage = ref(false)
 const includeAnswerSheet = ref(false)
@@ -326,8 +337,6 @@ const generationSourceLabel = computed(() => {
     if (lastGenerationResult.value?.source === 'fallback') return 'Standaardcontent gebruikt'
     return 'Lokaal opgebouwd'
 })
-const workbookExercises = computed(() => workbookExercisesByGroup[group.value] ?? workbookExercisesByGroup[defaultGroup] ?? [])
-
 function getQuestionsPerPage(exerciseValue: string) {
     if (exerciseValue === 'raamfiguren') {
         return 3
@@ -372,61 +381,81 @@ function getQuestionsPerPage(exerciseValue: string) {
     return standardQuestionsPerPage
 }
 
-function getWorkbookSectionsForPageCount(pageAmount: number) {
-    const exercises = workbookExercises.value
+function createDefaultWorkbookItems(groupValue: string, pageAmount = defaultPageCount) {
+    const exercises = workbookExercisesByGroup[groupValue] ?? workbookExercisesByGroup[defaultGroup] ?? []
+    const itemCount = Math.min(Math.max(Math.trunc(pageAmount), 1), exercises.length, maxWorkbookPages)
 
-    if (exercises.length === 0) {
-        return []
+    return exercises.slice(0, itemCount).map((exerciseValue) => ({
+        id: nextWorkbookItemId++,
+        exercise: exerciseValue,
+        pages: 1,
+    }))
+}
+
+function normalizeWorkbookItems(value: unknown, groupValue: string, legacyPageCount?: unknown) {
+    if (!Array.isArray(value)) {
+        return createDefaultWorkbookItems(groupValue, normalizePageCount(legacyPageCount))
     }
 
-    const activePageCount = Math.min(Math.max(Math.trunc(pageAmount), 1), maxWorkbookPages)
+    const validExercises = new Set(workbookExercisesByGroup[groupValue] ?? [])
+    const seenExercises = new Set<string>()
+    let remainingPages = maxWorkbookPages
+    const items: WorkbookBuilderItem[] = []
 
-    return Array.from({ length: activePageCount }, (_, index) => {
-        const exerciseValue = exercises[index % exercises.length] ?? exercises[0] ?? defaultExercise
+    for (const candidate of value) {
+        if (!candidate || typeof candidate !== 'object') continue
+        const { exercise: exerciseValue, pages: pagesValue } = candidate as { exercise?: unknown, pages?: unknown }
+        if (typeof exerciseValue !== 'string' || !validExercises.has(exerciseValue) || seenExercises.has(exerciseValue)) continue
 
-        return {
-            exercise: exerciseValue,
-            amount: getQuestionsPerPage(exerciseValue),
-        }
-    }) satisfies WorkbookSection[]
+        const pages = Math.min(
+            Math.max(Math.trunc(Number(pagesValue) || 1), 1),
+            maxWorkbookSectionPages,
+            remainingPages,
+        )
+        items.push({ id: nextWorkbookItemId++, exercise: exerciseValue, pages })
+        seenExercises.add(exerciseValue)
+        remainingPages -= pages
+        if (remainingPages === 0) break
+    }
+
+    return items.length > 0 ? items : createDefaultWorkbookItems(groupValue)
 }
 
 const questionsPerPage = computed(() => getQuestionsPerPage(exercise.value))
-const workbookSections = computed(() => getWorkbookSectionsForPageCount(pageCount.value))
+const workbookSections = computed(() => workbookItems.value.map((item) => ({
+    exercise: item.exercise,
+    amount: item.pages * getQuestionsPerPage(item.exercise),
+})) satisfies WorkbookSection[])
+const workbookPageCount = computed(() => workbookItems.value.reduce((total, item) => total + item.pages, 0))
+const availableWorkbookExercises = computed(() => {
+    const selectedExercises = new Set(workbookItems.value.map((item) => item.exercise))
+    return exerciseOptions.value.filter((option) => !selectedExercises.has(option.value))
+})
 const workbookAssignmentAmount = computed(() => workbookSections.value.reduce((total, section) => total + section.amount, 0))
 const maxAssignmentAmount = computed(() => questionsPerPage.value * maxWorksheetPages)
 const estimatedPageCount = computed(() => {
     if (isWorkbookMode.value) {
-        return pageCount.value
+        return workbookPageCount.value
     }
 
     return Math.max(1, Math.ceil(assignmentAmount.value / questionsPerPage.value))
 })
-const quantityInputId = computed(() => isWorkbookMode.value ? 'page-count' : 'assignment-amount')
-const quantityLabel = computed(() => isWorkbookMode.value ? "Aantal pagina's" : 'Aantal opdrachten')
-const quantityMax = computed(() => isWorkbookMode.value ? maxWorkbookPages : maxAssignmentAmount.value)
+const quantityInputId = 'assignment-amount'
+const quantityLabel = 'Aantal opdrachten'
+const quantityMax = computed(() => maxAssignmentAmount.value)
 const quantityValue = computed({
-    get() {
-        return isWorkbookMode.value ? pageCount.value : assignmentAmount.value
-    },
-    set(value: number) {
-        if (isWorkbookMode.value) {
-            pageCount.value = value
-            return
-        }
-
-        assignmentAmount.value = value
-    },
+    get: () => assignmentAmount.value,
+    set: (value: number) => { assignmentAmount.value = value },
 })
 const amountHelpText = computed(() => {
     if (isWorkbookMode.value) {
-        const pageLabel = pageCount.value === 1 ? 'pagina' : "pagina's"
+        const pageLabel = workbookPageCount.value === 1 ? 'pagina' : "pagina's"
         const exerciseLabels = [...new Set(workbookSections.value.map((section) => (
             exerciseLabelByValue.value.get(section.exercise) ?? section.exercise
         )))]
             .join(', ')
 
-        return `${pageCount.value} ${pageLabel}, gevuld met ongeveer ${workbookAssignmentAmount.value} opdrachten in een mix van ${exerciseLabels}.`
+        return `${workbookPageCount.value} ${pageLabel}, ongeveer ${workbookAssignmentAmount.value} opdrachten in ${exerciseLabels}.`
     }
 
     const assignmentLabel = exercise.value === 'tellen-cijfers'
@@ -448,6 +477,32 @@ const supportsDifficulty = computed(() => isWorkbookMode.value || ![
     'woorden-overtrekken',
 ].includes(exercise.value) && !exercise.value.startsWith('tellen-'))
 const activeTheme = computed(() => supportsTheme.value ? normalizeTheme(theme.value) : '')
+
+function addWorkbookItem() {
+    const exerciseValue = workbookExerciseToAdd.value || availableWorkbookExercises.value[0]?.value
+    if (!exerciseValue || workbookPageCount.value >= maxWorkbookPages) return
+
+    workbookItems.value.push({ id: nextWorkbookItemId++, exercise: exerciseValue, pages: 1 })
+    workbookExerciseToAdd.value = ''
+}
+
+function removeWorkbookItem(id: number) {
+    if (workbookItems.value.length <= 1) return
+    workbookItems.value = workbookItems.value.filter((item) => item.id !== id)
+}
+
+function moveWorkbookItem(index: number, direction: -1 | 1) {
+    const targetIndex = index + direction
+    if (targetIndex < 0 || targetIndex >= workbookItems.value.length) return
+
+    const items = [...workbookItems.value]
+    const currentItem = items[index]
+    const targetItem = items[targetIndex]
+    if (!currentItem || !targetItem) return
+    items[index] = targetItem
+    items[targetIndex] = currentItem
+    workbookItems.value = items
+}
 
 function getFirstExerciseForGroup(groupValue: string) {
     return exerciseOptionGroupsByGroup[groupValue]?.[0]?.options[0]?.value ?? defaultExercise
@@ -522,6 +577,11 @@ function loadStoredSettings() {
                 : undefined)
 
         pageCount.value = normalizePageCount(parsedSettings.pageCount)
+        workbookItems.value = normalizeWorkbookItems(
+            parsedSettings.workbookItems,
+            storedGroup,
+            parsedSettings.pageCount,
+        )
         assignmentAmount.value = normalizeAssignmentAmount(storedAssignmentAmount)
         includeCoverPage.value = normalizeBoolean(parsedSettings.includeCoverPage)
         includeAnswerSheet.value = normalizeBoolean(parsedSettings.includeAnswerSheet)
@@ -538,6 +598,10 @@ function saveStoredSettings() {
         group: group.value,
         exercise: exercise.value,
         pageCount: normalizePageCount(pageCount.value),
+        workbookItems: workbookItems.value.map(({ exercise: exerciseValue, pages }) => ({
+            exercise: exerciseValue,
+            pages,
+        })),
         assignmentAmount: normalizeAssignmentAmount(assignmentAmount.value),
         includeCoverPage: includeCoverPage.value,
         includeAnswerSheet: includeAnswerSheet.value,
@@ -548,19 +612,50 @@ function saveStoredSettings() {
 
 loadStoredSettings()
 
+if (workbookItems.value.length === 0) {
+    workbookItems.value = createDefaultWorkbookItems(group.value)
+}
+
 watch(group, () => {
     const hasSelectedExercise = exerciseOptions.value.some((option) => option.value === exercise.value)
 
     if (!hasSelectedExercise) {
         exercise.value = exerciseOptions.value[0]?.value ?? 'contextsommen'
     }
+
+    workbookItems.value = normalizeWorkbookItems(workbookItems.value, group.value)
+    workbookExerciseToAdd.value = ''
 })
 
-watch([mode, group, exercise, pageCount, assignmentAmount, includeCoverPage, includeAnswerSheet, theme, difficulty], saveStoredSettings)
+watch(
+    [mode, group, exercise, pageCount, assignmentAmount, workbookItems, includeCoverPage, includeAnswerSheet, theme, difficulty],
+    saveStoredSettings,
+    { deep: true },
+)
 
 function validateAmount() {
+    if (isWorkbookMode.value) {
+        if (workbookItems.value.length === 0 || workbookPageCount.value < 1) {
+            amountError.value = 'Voeg minimaal één onderdeel toe.'
+            return false
+        }
+        if (workbookItems.value.some((item) => (
+            !Number.isInteger(item.pages) || item.pages < 1 || item.pages > maxWorkbookSectionPages
+        ))) {
+            amountError.value = `Kies per onderdeel 1 tot ${maxWorkbookSectionPages} pagina's.`
+            return false
+        }
+        if (workbookPageCount.value > maxWorkbookPages) {
+            amountError.value = `Je kunt maximaal ${maxWorkbookPages} pagina's maken.`
+            return false
+        }
+
+        amountError.value = ''
+        return true
+    }
+
     if (quantityValue.value < 1) {
-        amountError.value = isWorkbookMode.value ? 'Kies minimaal 1 pagina.' : 'Kies minimaal 1 opdracht.'
+        amountError.value = 'Kies minimaal 1 opdracht.'
 
         return false
     }
@@ -572,9 +667,7 @@ function validateAmount() {
                 ? 'dobbelstenen'
             : compactArithmeticExercises.has(exercise.value) ? 'sommen' : 'opdrachten'
 
-        amountError.value = isWorkbookMode.value
-            ? `Je kunt maximaal ${maxWorkbookPages} pagina's maken.`
-            : `Je kunt maximaal ${maxAssignmentAmount.value} ${assignmentLabel} genereren.`
+        amountError.value = `Je kunt maximaal ${maxAssignmentAmount.value} ${assignmentLabel} genereren.`
 
         return false
     }
@@ -584,7 +677,7 @@ function validateAmount() {
     return true
 }
 
-watch([mode, exercise, pageCount, assignmentAmount], validateAmount)
+watch([mode, exercise, assignmentAmount, workbookItems], validateAmount, { deep: true })
 
 function startGenerationTimer() {
     generationStartedAt.value = Date.now()
@@ -670,12 +763,9 @@ async function generatePdf() {
         @submit.prevent="generatePdf"
     >
         <div>
-            <label
-                class="mb-2 block text-sm font-medium text-slate-700"
-            >
+            <label class="mb-2 block text-sm font-medium text-slate-700">
                 Ik wil maken
             </label>
-
             <div class="grid grid-cols-2 rounded-lg border border-slate-300 bg-slate-50 p-1">
                 <button
                     type="button"
@@ -687,7 +777,6 @@ async function generatePdf() {
                 >
                     Werkblad
                 </button>
-
                 <button
                     type="button"
                     :disabled="isGenerating"
@@ -708,7 +797,6 @@ async function generatePdf() {
             >
                 Groep
             </label>
-
             <div class="relative">
                 <select
                     id="group"
@@ -716,32 +804,14 @@ async function generatePdf() {
                     :disabled="isGenerating"
                     :class="selectClass"
                 >
-                    <option value="1">
-                        Groep 1
-                    </option>
-                    <option value="2">
-                        Groep 2
-                    </option>
-                    <option value="3">
-                        Groep 3
-                    </option>
-                    <option value="4">
-                        Groep 4
-                    </option>
-                    <option value="5">
-                        Groep 5
-                    </option>
-                    <option value="6">
-                        Groep 6
-                    </option>
-                    <option value="7">
-                        Groep 7
-                    </option>
-                    <option value="8">
-                        Groep 8
+                    <option
+                        v-for="groupNumber in 8"
+                        :key="groupNumber"
+                        :value="String(groupNumber)"
+                    >
+                        Groep {{ groupNumber }}
                     </option>
                 </select>
-
                 <span class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-slate-500">
                     <svg
                         aria-hidden="true"
@@ -760,6 +830,143 @@ async function generatePdf() {
                 </span>
             </div>
         </div>
+
+        <section
+            v-if="isWorkbookMode"
+            class="space-y-3"
+            aria-labelledby="workbook-builder-title"
+        >
+            <div>
+                <h2
+                    id="workbook-builder-title"
+                    class="font-medium text-slate-800"
+                >
+                    Onderdelen
+                </h2>
+                <p class="mt-1 text-sm text-slate-500">
+                    Kies de volgorde en het aantal pagina's per oefensoort.
+                </p>
+            </div>
+
+            <ol class="space-y-3">
+                <li
+                    v-for="(item, itemIndex) in workbookItems"
+                    :key="item.id"
+                    class="rounded-lg border border-slate-200 bg-slate-50 p-3"
+                >
+                    <div class="flex items-start gap-3">
+                        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-sm font-semibold text-emerald-800">
+                            {{ itemIndex + 1 }}
+                        </span>
+
+                        <div class="min-w-0 flex-1 space-y-3">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <span class="font-medium text-slate-800">
+                                    {{ exerciseLabelByValue.get(item.exercise) ?? item.exercise }}
+                                </span>
+                                <div class="flex gap-1">
+                                    <button
+                                        type="button"
+                                        :disabled="isGenerating || itemIndex === 0"
+                                        :aria-label="`${exerciseLabelByValue.get(item.exercise) ?? item.exercise} omhoog`"
+                                        class="rounded-md border border-slate-300 bg-white px-2 py-1 text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+                                        @click="moveWorkbookItem(itemIndex, -1)"
+                                    >
+                                        ↑
+                                    </button>
+                                    <button
+                                        type="button"
+                                        :disabled="isGenerating || itemIndex === workbookItems.length - 1"
+                                        :aria-label="`${exerciseLabelByValue.get(item.exercise) ?? item.exercise} omlaag`"
+                                        class="rounded-md border border-slate-300 bg-white px-2 py-1 text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+                                        @click="moveWorkbookItem(itemIndex, 1)"
+                                    >
+                                        ↓
+                                    </button>
+                                    <button
+                                        type="button"
+                                        :disabled="isGenerating || workbookItems.length <= 1"
+                                        :aria-label="`${exerciseLabelByValue.get(item.exercise) ?? item.exercise} verwijderen`"
+                                        class="rounded-md border border-red-200 bg-white px-2 py-1 text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                        @click="removeWorkbookItem(item.id)"
+                                    >
+                                        Verwijder
+                                    </button>
+                                </div>
+                            </div>
+
+                            <label
+                                :for="`workbook-pages-${item.id}`"
+                                class="flex items-center justify-between gap-3 text-sm text-slate-600"
+                            >
+                                <span>Pagina's</span>
+                                <input
+                                    :id="`workbook-pages-${item.id}`"
+                                    v-model.number="item.pages"
+                                    type="number"
+                                    :aria-label="`${exerciseLabelByValue.get(item.exercise) ?? item.exercise}: pagina's`"
+                                    min="1"
+                                    :max="maxWorkbookSectionPages"
+                                    :disabled="isGenerating"
+                                    class="w-24 rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-950 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+                                >
+                            </label>
+                        </div>
+                    </div>
+                </li>
+            </ol>
+
+            <div
+                v-if="availableWorkbookExercises.length > 0"
+                class="flex flex-col gap-2 sm:flex-row"
+            >
+                <label
+                    for="workbook-exercise-add"
+                    class="sr-only"
+                >
+                    Oefensoort toevoegen
+                </label>
+                <select
+                    id="workbook-exercise-add"
+                    v-model="workbookExerciseToAdd"
+                    :disabled="isGenerating || workbookPageCount >= maxWorkbookPages"
+                    :class="selectClass"
+                >
+                    <option value="">
+                        Kies een oefensoort
+                    </option>
+                    <option
+                        v-for="option in availableWorkbookExercises"
+                        :key="option.value"
+                        :value="option.value"
+                    >
+                        {{ option.label }}
+                    </option>
+                </select>
+                <button
+                    type="button"
+                    :disabled="isGenerating || !workbookExerciseToAdd || workbookPageCount >= maxWorkbookPages"
+                    class="shrink-0 rounded-lg border border-emerald-600 px-4 py-3 font-medium text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    @click="addWorkbookItem"
+                >
+                    Toevoegen
+                </button>
+            </div>
+
+            <p
+                id="workbook-summary"
+                class="text-sm text-slate-500"
+            >
+                {{ amountHelpText }} Maximaal {{ maxWorkbookPages }} pagina's.
+            </p>
+            <p
+                v-if="amountError"
+                id="amount-error"
+                class="text-sm text-red-600"
+            >
+                {{ amountError }}
+            </p>
+        </section>
 
         <div v-if="!isWorkbookMode">
             <label
@@ -902,7 +1109,7 @@ async function generatePdf() {
             </div>
         </div>
 
-        <div>
+        <div v-if="!isWorkbookMode">
             <label
                 class="mb-2 block text-sm font-medium text-slate-700"
                 :for="quantityInputId"
