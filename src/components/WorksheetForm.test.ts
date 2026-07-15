@@ -1,21 +1,44 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import WorksheetForm from './WorksheetForm.vue'
-import { generateWorkbookPdf, generateWorksheetPdf } from '../services/generateWorksheetPdf'
+import {
+  createEditedWorksheetPdf,
+  generateWorkbookPdf,
+  generateWorksheetPdf,
+  regenerateWorksheetItem,
+} from '../services/generateWorksheetPdf'
 
 vi.mock('../services/generateWorksheetPdf', () => ({
   generateWorksheetPdf: vi.fn(),
   generateWorkbookPdf: vi.fn(),
+  createEditedWorksheetPdf: vi.fn(),
+  regenerateWorksheetItem: vi.fn(),
 }))
 
 const mockedGenerateWorksheetPdf = vi.mocked(generateWorksheetPdf)
 const mockedGenerateWorkbookPdf = vi.mocked(generateWorkbookPdf)
+const mockedCreateEditedWorksheetPdf = vi.mocked(createEditedWorksheetPdf)
+const mockedRegenerateWorksheetItem = vi.mocked(regenerateWorksheetItem)
 
 describe('WorksheetForm', () => {
   beforeEach(() => {
     window.localStorage.clear()
-    mockedGenerateWorksheetPdf.mockResolvedValue({ source: 'openai', previewUrl: 'blob:worksheet', fileName: 'werkblad.pdf', pageCount: 1 })
+    mockedGenerateWorksheetPdf.mockResolvedValue({
+      source: 'openai',
+      previewUrl: 'blob:worksheet',
+      fileName: 'werkblad.pdf',
+      pageCount: 1,
+      editableItems: [{ question: 'Wat is 2 + 2?', answer: '4' }],
+    })
     mockedGenerateWorkbookPdf.mockResolvedValue({ source: 'openai', previewUrl: 'blob:workbook', fileName: 'werkboekje.pdf', pageCount: 5 })
+    mockedCreateEditedWorksheetPdf.mockResolvedValue({
+      source: 'openai',
+      previewUrl: 'blob:edited',
+      fileName: 'werkblad.pdf',
+      pageCount: 1,
+      editableItems: [{ question: 'Wat is 3 + 3?', answer: '6' }],
+    })
+    mockedRegenerateWorksheetItem.mockResolvedValue({ question: 'Wat is 3 + 3?', answer: '6' })
   })
 
   it('koppelt alle zichtbare selectvelden aan hun labels', () => {
@@ -148,5 +171,42 @@ describe('WorksheetForm', () => {
     await flushPromises()
 
     expect(mockedGenerateWorksheetPdf).toHaveBeenCalledTimes(2)
+  })
+
+  it('kan een opdracht aanpassen en de preview lokaal bijwerken', async () => {
+    const wrapper = mount(WorksheetForm)
+
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    await wrapper.get('#edit-question-0').setValue('Wat is 3 + 3?')
+    await wrapper.get('#edit-answer-0').setValue('6')
+    const updateButton = wrapper.findAll('button').find((button) => button.text() === 'Werk preview bij')
+    await updateButton?.trigger('click')
+    await flushPromises()
+
+    expect(mockedCreateEditedWorksheetPdf).toHaveBeenCalledWith(
+      '4',
+      'contextsommen',
+      [{ question: 'Wat is 3 + 3?', answer: '6' }],
+      'default',
+      false,
+      'openai',
+      undefined,
+    )
+    expect(wrapper.get('iframe').attributes('src')).toBe('blob:edited')
+  })
+
+  it('kan één opdracht opnieuw genereren', async () => {
+    const wrapper = mount(WorksheetForm)
+
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    const regenerateButton = wrapper.findAll('button').find((button) => button.text() === 'Opnieuw genereren')
+    await regenerateButton?.trigger('click')
+    await flushPromises()
+
+    expect(mockedRegenerateWorksheetItem).toHaveBeenCalledOnce()
+    expect(mockedCreateEditedWorksheetPdf).toHaveBeenCalledOnce()
+    expect(wrapper.get('#edit-question-0').element).toHaveProperty('value', 'Wat is 3 + 3?')
   })
 })

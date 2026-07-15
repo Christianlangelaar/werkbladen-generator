@@ -26,6 +26,12 @@ export type PdfGenerationResult = {
   previewUrl: string
   fileName: string
   pageCount: number
+  editableItems?: EditableWorksheetItem[]
+}
+
+export type EditableWorksheetItem = {
+  question: string
+  answer: string
 }
 
 export type WorkbookGenerationProgress = {
@@ -76,9 +82,28 @@ function createPdfResult(
   fileName: string,
   source: PdfGenerationResult['source'],
   warning?: string,
+  editableItems?: EditableWorksheetItem[],
 ): PdfGenerationResult {
   const previewUrl = URL.createObjectURL(doc.output('blob'))
-  return { source, warning, previewUrl, fileName, pageCount: doc.getNumberOfPages() }
+  return { source, warning, previewUrl, fileName, pageCount: doc.getNumberOfPages(), editableItems }
+}
+
+function withoutNumber(value: string) {
+  return value.replace(/^\d+\.\s*/, '')
+}
+
+function toEditableItems(content: WorksheetContent): EditableWorksheetItem[] {
+  return content.questions.map((question, index) => ({
+    question: withoutNumber(question),
+    answer: withoutNumber(content.answers[index] ?? ''),
+  }))
+}
+
+function numberEditableItems(items: EditableWorksheetItem[]): WorksheetContent {
+  return {
+    questions: items.map((item, index) => `${index + 1}. ${withoutNumber(item.question)}`),
+    answers: items.map((item, index) => `${index + 1}. ${withoutNumber(item.answer)}`),
+  }
 }
 
 type AnswerSection = {
@@ -1072,7 +1097,13 @@ export async function generateWorksheetPdf(
       addAnswerFooter(doc, answerStartPage)
     }
 
-    return createPdfResult(doc, getWorksheetFileName(group, exercise), content.source, content.warning)
+    return createPdfResult(
+      doc,
+      getWorksheetFileName(group, exercise),
+      content.source,
+      content.warning,
+      toEditableItems(content),
+    )
   }
 
   addDefaultExercisePages(doc, group, exercise, content.questions)
@@ -1087,7 +1118,71 @@ export async function generateWorksheetPdf(
     addAnswerFooter(doc, answerStartPage)
   }
 
-  return createPdfResult(doc, getWorksheetFileName(group, exercise), content.source, content.warning)
+  return createPdfResult(
+    doc,
+    getWorksheetFileName(group, exercise),
+    content.source,
+    content.warning,
+    toEditableItems(content),
+  )
+}
+
+export async function createEditedWorksheetPdf(
+  group: string,
+  exercise: string,
+  items: EditableWorksheetItem[],
+  layout: WorksheetLayout = isCompactArithmeticExercise(exercise) ? 'compact-arithmetic' : 'default',
+  includeAnswerSheet = false,
+  source: PdfGenerationResult['source'] = 'local',
+  warning?: string,
+): Promise<PdfGenerationResult> {
+  if (items.length === 0) {
+    throw new Error('Behoud minimaal één opdracht.')
+  }
+
+  const content = numberEditableItems(items)
+  const doc = new jsPDF()
+
+  if (layout === 'compact-arithmetic') {
+    addCompactArithmeticPages(
+      doc,
+      group,
+      exercise,
+      content.questions,
+      Math.ceil(items.length / compactArithmeticQuestionsPerPage),
+    )
+  } else {
+    addDefaultExercisePages(doc, group, exercise, content.questions)
+  }
+
+  addFooter(doc, group, exercise)
+  const answerStartPage = doc.getNumberOfPages() + 1
+  if (includeAnswerSheet) {
+    addAnswerSheet(doc, getWorksheetTitle(group, exercise), [{
+      title: formatExerciseName(exercise),
+      answers: content.answers,
+    }])
+    addAnswerFooter(doc, answerStartPage)
+  }
+
+  return createPdfResult(
+    doc,
+    getWorksheetFileName(group, exercise),
+    source,
+    warning,
+    items.map((item) => ({ ...item })),
+  )
+}
+
+export async function regenerateWorksheetItem(
+  group: string,
+  exercise: string,
+  layout: WorksheetLayout,
+  theme?: string,
+  difficulty?: string,
+): Promise<EditableWorksheetItem> {
+  const content = await getWorksheetQuestions(group, exercise, 1, layout, theme, difficulty)
+  return toEditableItems(content)[0] ?? { question: '', answer: '' }
 }
 
 export async function generateWorkbookPdf(

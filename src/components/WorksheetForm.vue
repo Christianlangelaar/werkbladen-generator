@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import type {
+    EditableWorksheetItem,
     PdfGenerationResult,
     WorkbookGenerationProgress,
     WorkbookSection,
@@ -72,6 +73,8 @@ const lastGenerationResult = ref<PdfGenerationResult | null>(null)
 const isPreviewVisible = ref(false)
 const previewIframe = ref<HTMLIFrameElement | null>(null)
 const generationResultTitle = ref<HTMLElement | null>(null)
+const editableItems = ref<EditableWorksheetItem[]>([])
+const regeneratingItemIndex = ref<number | null>(null)
 const workbookProgress = ref<WorkbookGenerationProgress | null>(null)
 const isGenerating = ref(false)
 const generationStartedAt = ref(0)
@@ -731,6 +734,7 @@ function releasePreview() {
 
     lastGenerationResult.value = null
     isPreviewVisible.value = false
+    editableItems.value = []
 }
 
 function printPdf() {
@@ -743,6 +747,65 @@ function printPdf() {
 
     previewWindow.focus()
     previewWindow.print()
+}
+
+function removeEditableItem(index: number) {
+    if (editableItems.value.length <= 1) {
+        generationError.value = 'Behoud minimaal één opdracht.'
+        return
+    }
+
+    generationError.value = ''
+    editableItems.value.splice(index, 1)
+}
+
+async function applyWorksheetEdits() {
+    if (!lastGenerationResult.value || editableItems.value.length === 0) return
+
+    generationError.value = ''
+    const previousResult = lastGenerationResult.value
+
+    try {
+        const { createEditedWorksheetPdf } = await import('../services/generateWorksheetPdf')
+        const result = await createEditedWorksheetPdf(
+            group.value,
+            exercise.value,
+            editableItems.value,
+            compactArithmeticExercises.has(exercise.value) ? 'compact-arithmetic' : 'default',
+            includeAnswerSheet.value,
+            previousResult.source,
+            previousResult.warning,
+        )
+        URL.revokeObjectURL(previousResult.previewUrl)
+        lastGenerationResult.value = result
+        editableItems.value = result.editableItems?.map((item) => ({ ...item })) ?? []
+        isPreviewVisible.value = true
+    } catch (error) {
+        generationError.value = error instanceof Error ? error.message : 'De wijzigingen konden niet worden verwerkt.'
+    }
+}
+
+async function regenerateEditableItem(index: number) {
+    const currentItem = editableItems.value[index]
+    if (!currentItem || regeneratingItemIndex.value !== null) return
+
+    generationError.value = ''
+    regeneratingItemIndex.value = index
+    try {
+        const { regenerateWorksheetItem } = await import('../services/generateWorksheetPdf')
+        editableItems.value[index] = await regenerateWorksheetItem(
+            group.value,
+            exercise.value,
+            compactArithmeticExercises.has(exercise.value) ? 'compact-arithmetic' : 'default',
+            activeTheme.value || undefined,
+            normalizeDifficulty(difficulty.value) || undefined,
+        )
+        await applyWorksheetEdits()
+    } catch (error) {
+        generationError.value = error instanceof Error ? error.message : 'De opdracht kon niet opnieuw worden gemaakt.'
+    } finally {
+        regeneratingItemIndex.value = null
+    }
 }
 
 onBeforeUnmount(releasePreview)
@@ -786,6 +849,7 @@ async function generatePdf() {
         const result = await workbookPdfPromise
 
         lastGenerationResult.value = result
+        editableItems.value = result.editableItems?.map((item) => ({ ...item })) ?? []
         isPreviewVisible.value = true
         generationNotice.value = result.warning ?? ''
         await nextTick()
@@ -1328,6 +1392,79 @@ async function generatePdf() {
                     {{ generationSourceLabel }}
                 </span>
             </div>
+
+            <details
+                v-if="editableItems.length > 0"
+                class="mt-4 rounded-lg border border-emerald-200 bg-white"
+            >
+                <summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-emerald-900">
+                    Bewerk opdrachten ({{ editableItems.length }})
+                </summary>
+
+                <div class="max-h-[32rem] space-y-4 overflow-y-auto border-t border-emerald-100 p-4">
+                    <fieldset
+                        v-for="(item, index) in editableItems"
+                        :key="index"
+                        class="rounded-lg border border-slate-200 p-3"
+                    >
+                        <legend class="px-1 text-sm font-semibold text-slate-700">
+                            Opdracht {{ index + 1 }}
+                        </legend>
+
+                        <label
+                            :for="`edit-question-${index}`"
+                            class="mb-1 block text-xs font-semibold text-slate-600"
+                        >
+                            Vraag
+                        </label>
+                        <textarea
+                            :id="`edit-question-${index}`"
+                            v-model="item.question"
+                            rows="2"
+                            class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-950 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+                        />
+
+                        <label
+                            :for="`edit-answer-${index}`"
+                            class="mb-1 mt-3 block text-xs font-semibold text-slate-600"
+                        >
+                            Antwoord
+                        </label>
+                        <textarea
+                            :id="`edit-answer-${index}`"
+                            v-model="item.answer"
+                            rows="2"
+                            class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-950 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+                        />
+
+                        <div class="mt-3 flex flex-wrap gap-2">
+                            <button
+                                type="button"
+                                class="rounded-md border border-emerald-300 px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-50 disabled:cursor-wait disabled:opacity-60"
+                                :disabled="regeneratingItemIndex !== null"
+                                @click="regenerateEditableItem(index)"
+                            >
+                                {{ regeneratingItemIndex === index ? 'Opnieuw maken...' : 'Opnieuw genereren' }}
+                            </button>
+                            <button
+                                type="button"
+                                class="rounded-md border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50"
+                                @click="removeEditableItem(index)"
+                            >
+                                Verwijder opdracht
+                            </button>
+                        </div>
+                    </fieldset>
+
+                    <button
+                        type="button"
+                        class="w-full rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800"
+                        @click="applyWorksheetEdits"
+                    >
+                        Werk preview bij
+                    </button>
+                </div>
+            </details>
 
             <div class="mt-4 grid gap-2 sm:grid-cols-3">
                 <a

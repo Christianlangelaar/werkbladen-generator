@@ -53,6 +53,26 @@ test('maakt een werkboekje met voorblad en antwoordenblad', async ({ page }) => 
   await expect(page.getByRole('status')).toContainText('standaardcontent')
 })
 
+test('bewerkt, verwijdert en vernieuwt losse opdrachten voor download', async ({ page }) => {
+  await page.getByLabel('Aantal opdrachten', { exact: true }).fill('2')
+  await page.getByRole('button', { name: 'Maak werkblad', exact: true }).click()
+  const preview = page.getByTitle('Preview van de gemaakte PDF')
+  await expect(preview).toBeVisible()
+  const originalPreviewUrl = await preview.getAttribute('src')
+
+  await page.getByText('Bewerk opdrachten (2)', { exact: true }).click()
+  await page.getByLabel('Vraag', { exact: true }).first().fill('Een zelf aangepaste opdracht')
+  await page.getByLabel('Antwoord', { exact: true }).first().fill('Een eigen antwoord')
+  await page.getByRole('button', { name: 'Verwijder opdracht', exact: true }).last().click()
+  await page.getByRole('button', { name: 'Werk preview bij', exact: true }).click()
+
+  await expect(page.getByText('Bewerk opdrachten (1)', { exact: true })).toBeVisible()
+  await expect(preview).not.toHaveAttribute('src', originalPreviewUrl ?? '')
+
+  await page.getByRole('button', { name: 'Opnieuw genereren', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Opnieuw genereren', exact: true })).toBeEnabled()
+})
+
 test('blijft bruikbaar op een mobiele viewport', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 })
   await page.reload()
