@@ -17,7 +17,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "zsh -ic 'nvm use && OPENAI_API_KEY= npm run dev -- --host 127.0.0.1'",
+    command: process.env.CI
+      ? 'OPENAI_API_KEY= npm run dev -- --host 127.0.0.1'
+      : "zsh -ic 'nvm use && OPENAI_API_KEY= npm run dev -- --host 127.0.0.1'",
     url: 'http://127.0.0.1:5173',
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,
