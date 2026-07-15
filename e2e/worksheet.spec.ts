@@ -16,6 +16,11 @@ test('maakt een werkblad en meldt gebruikte fallbackcontent', async ({ page }) =
 
   expect(download.suggestedFilename()).toBe('groep4-contextsommen.pdf')
   await expect(page.getByRole('status')).toContainText('standaardversie')
+  const result = page.getByRole('region', { name: 'Je PDF is klaar' })
+  await expect(result.getByText('Standaardcontent gebruikt', { exact: true })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Bekijk PDF-preview', exact: true }).click()
+  await expect(page.getByTitle('Preview van de gemaakte PDF')).toBeVisible()
 })
 
 test('maakt een werkboekje met voorblad en antwoordenblad', async ({ page }) => {

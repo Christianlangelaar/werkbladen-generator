@@ -1,6 +1,11 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { generateWorkbookPdf, generateWorksheetPdf, type WorkbookSection } from '../services/generateWorksheetPdf'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import {
+    generateWorkbookPdf,
+    generateWorksheetPdf,
+    type PdfGenerationResult,
+    type WorkbookSection,
+} from '../services/generateWorksheetPdf'
 
 type WorksheetMode = 'worksheet' | 'workbook'
 
@@ -53,6 +58,8 @@ const difficulty = ref('')
 const amountError = ref('')
 const generationError = ref('')
 const generationNotice = ref('')
+const lastGenerationResult = ref<PdfGenerationResult | null>(null)
+const isPreviewVisible = ref(false)
 const isGenerating = ref(false)
 const generationStartedAt = ref(0)
 const elapsedSeconds = ref(0)
@@ -306,6 +313,11 @@ const loadingButtonText = computed(() => {
     const elapsedText = elapsedSeconds.value > 0 ? ` ${elapsedSeconds.value} sec` : ''
 
     return `${outputLabel} maken...${elapsedText}`
+})
+const generationSourceLabel = computed(() => {
+    if (lastGenerationResult.value?.source === 'openai') return 'Met AI gegenereerd'
+    if (lastGenerationResult.value?.source === 'fallback') return 'Standaardcontent gebruikt'
+    return 'Lokaal opgebouwd'
 })
 const workbookExercises = computed(() => workbookExercisesByGroup[group.value] ?? workbookExercisesByGroup[defaultGroup] ?? [])
 
@@ -582,6 +594,17 @@ function stopGenerationTimer() {
     }
 }
 
+function releasePreview() {
+    if (lastGenerationResult.value?.previewUrl) {
+        URL.revokeObjectURL(lastGenerationResult.value.previewUrl)
+    }
+
+    lastGenerationResult.value = null
+    isPreviewVisible.value = false
+}
+
+onBeforeUnmount(releasePreview)
+
 async function generatePdf() {
     if (!validateAmount()) {
         return
@@ -589,6 +612,7 @@ async function generatePdf() {
 
     generationError.value = ''
     generationNotice.value = ''
+    releasePreview()
     isGenerating.value = true
     startGenerationTimer()
 
@@ -614,6 +638,7 @@ async function generatePdf() {
 
         const result = await workbookPdfPromise
 
+        lastGenerationResult.value = result
         generationNotice.value = result.warning ?? ''
     } catch (error) {
         generationError.value = error instanceof Error
@@ -628,7 +653,7 @@ async function generatePdf() {
 
 <template>
     <form
-        class="mt-8 space-y-6"
+        class="mt-6 space-y-5 sm:mt-8 sm:space-y-6"
         :aria-busy="isGenerating ? 'true' : 'false'"
         @submit.prevent="generatePdf"
     >
@@ -960,6 +985,56 @@ async function generatePdf() {
                 <span class="block h-full w-1/2 animate-pulse rounded-full bg-white/80" />
             </span>
         </button>
+
+        <section
+            v-if="lastGenerationResult"
+            class="rounded-xl border border-emerald-200 bg-emerald-50/70 p-4"
+            aria-labelledby="generation-result-title"
+        >
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <h2
+                        id="generation-result-title"
+                        class="font-semibold text-emerald-950"
+                    >
+                        Je PDF is klaar
+                    </h2>
+                    <p class="mt-1 text-sm text-emerald-800">
+                        {{ generationSourceLabel }} en gedownload.
+                    </p>
+                </div>
+
+                <span class="rounded-full bg-white px-3 py-1 text-xs font-semibold text-emerald-800 shadow-sm">
+                    {{ generationSourceLabel }}
+                </span>
+            </div>
+
+            <div class="mt-4 grid gap-2 sm:grid-cols-2">
+                <button
+                    type="button"
+                    class="rounded-lg border border-emerald-300 bg-white px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-50"
+                    :aria-expanded="isPreviewVisible"
+                    @click="isPreviewVisible = !isPreviewVisible"
+                >
+                    {{ isPreviewVisible ? 'Sluit preview' : 'Bekijk PDF-preview' }}
+                </button>
+
+                <button
+                    type="button"
+                    class="rounded-lg border border-emerald-300 px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100"
+                    @click="generatePdf"
+                >
+                    Maak nog een variant
+                </button>
+            </div>
+
+            <iframe
+                v-if="isPreviewVisible"
+                :src="lastGenerationResult.previewUrl"
+                title="Preview van de gemaakte PDF"
+                class="mt-4 h-96 w-full rounded-lg border border-emerald-200 bg-white"
+            />
+        </section>
 
         <p
             v-if="generationNotice"

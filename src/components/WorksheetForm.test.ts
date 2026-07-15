@@ -14,8 +14,8 @@ const mockedGenerateWorkbookPdf = vi.mocked(generateWorkbookPdf)
 describe('WorksheetForm', () => {
   beforeEach(() => {
     window.localStorage.clear()
-    mockedGenerateWorksheetPdf.mockResolvedValue({ source: 'openai' })
-    mockedGenerateWorkbookPdf.mockResolvedValue({ source: 'openai' })
+    mockedGenerateWorksheetPdf.mockResolvedValue({ source: 'openai', previewUrl: 'blob:worksheet' })
+    mockedGenerateWorkbookPdf.mockResolvedValue({ source: 'openai', previewUrl: 'blob:workbook' })
   })
 
   it('koppelt alle zichtbare selectvelden aan hun labels', () => {
@@ -63,6 +63,7 @@ describe('WorksheetForm', () => {
     mockedGenerateWorksheetPdf.mockResolvedValue({
       source: 'fallback',
       warning: 'Er is standaardcontent gebruikt.',
+      previewUrl: 'blob:fallback',
     })
     const wrapper = mount(WorksheetForm)
 
@@ -81,5 +82,24 @@ describe('WorksheetForm', () => {
 
     expect(mockedGenerateWorkbookPdf).toHaveBeenCalledOnce()
     expect(mockedGenerateWorksheetPdf).not.toHaveBeenCalled()
+  })
+
+  it('toont een PDF-preview en kan nog een variant maken', async () => {
+    const wrapper = mount(WorksheetForm)
+
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Met AI gegenereerd')
+    await wrapper.get('button[aria-expanded="false"]').trigger('click')
+    expect(wrapper.get('iframe').attributes('src')).toBe('blob:worksheet')
+
+    const variantButton = wrapper.findAll('button').find((button) => button.text().includes('nog een variant'))
+
+    expect(variantButton).toBeDefined()
+    await variantButton?.trigger('click')
+    await flushPromises()
+
+    expect(mockedGenerateWorksheetPdf).toHaveBeenCalledTimes(2)
   })
 })

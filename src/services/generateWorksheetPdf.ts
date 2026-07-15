@@ -21,6 +21,20 @@ type GeneratedWorksheetContent = WorksheetContent & {
 export type PdfGenerationResult = {
   source: 'openai' | 'fallback' | 'local'
   warning?: string
+  previewUrl: string
+}
+
+function savePdfWithPreview(
+  doc: jsPDF,
+  fileName: string,
+  source: PdfGenerationResult['source'],
+  warning?: string,
+): PdfGenerationResult {
+  const previewUrl = URL.createObjectURL(doc.output('blob'))
+
+  doc.save(fileName)
+
+  return { source, warning, previewUrl }
 }
 
 type AnswerSection = {
@@ -1078,8 +1092,7 @@ export async function generateWorksheetPdf(
   if (earlyLearningExercises.has(exercise)) {
     addEarlyLearningPages(doc, group, exercise, amount)
     addFooter(doc, group, exercise)
-    doc.save(getWorksheetFileName(group, exercise))
-    return { source: 'local' } satisfies PdfGenerationResult
+    return savePdfWithPreview(doc, getWorksheetFileName(group, exercise), 'local')
   }
 
   if (layout === 'counting') {
@@ -1091,8 +1104,7 @@ export async function generateWorksheetPdf(
       addAnswerSheet(doc, getWorksheetTitle(group, exercise), [{ title: 'Tellen', answers }])
       addAnswerFooter(doc, answerStartPage)
     }
-    doc.save(getWorksheetFileName(group, exercise))
-    return { source: 'local' } satisfies PdfGenerationResult
+    return savePdfWithPreview(doc, getWorksheetFileName(group, exercise), 'local')
   }
 
   const content = await getWorksheetQuestions(group, exercise, amount, layout, theme, difficulty)
@@ -1116,8 +1128,7 @@ export async function generateWorksheetPdf(
       addAnswerFooter(doc, answerStartPage)
     }
 
-    doc.save(getWorksheetFileName(group, exercise))
-    return { source: content.source, warning: content.warning } satisfies PdfGenerationResult
+    return savePdfWithPreview(doc, getWorksheetFileName(group, exercise), content.source, content.warning)
   }
 
   addDefaultExercisePages(doc, group, exercise, content.questions)
@@ -1132,8 +1143,7 @@ export async function generateWorksheetPdf(
     addAnswerFooter(doc, answerStartPage)
   }
 
-  doc.save(getWorksheetFileName(group, exercise))
-  return { source: content.source, warning: content.warning } satisfies PdfGenerationResult
+  return savePdfWithPreview(doc, getWorksheetFileName(group, exercise), content.source, content.warning)
 }
 
 export async function generateWorkbookPdf(
@@ -1220,14 +1230,14 @@ export async function generateWorkbookPdf(
     addAnswerFooter(doc, answerStartPage)
   }
 
-  doc.save(getWorkbookFileName(group))
-
   if (fallbackWarnings.size > 0) {
-    return {
-      source: 'fallback',
-      warning: 'Een deel van het werkboekje kon niet met AI worden gemaakt. Voor die onderdelen is standaardcontent gebruikt.',
-    } satisfies PdfGenerationResult
+    return savePdfWithPreview(
+      doc,
+      getWorkbookFileName(group),
+      'fallback',
+      'Een deel van het werkboekje kon niet met AI worden gemaakt. Voor die onderdelen is standaardcontent gebruikt.',
+    )
   }
 
-  return { source: hasOpenAiContent ? 'openai' : 'local' } satisfies PdfGenerationResult
+  return savePdfWithPreview(doc, getWorkbookFileName(group), hasOpenAiContent ? 'openai' : 'local')
 }
