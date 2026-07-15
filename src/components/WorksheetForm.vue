@@ -52,6 +52,7 @@ const theme = ref('')
 const difficulty = ref('')
 const amountError = ref('')
 const generationError = ref('')
+const generationNotice = ref('')
 const isGenerating = ref(false)
 const generationStartedAt = ref(0)
 const elapsedSeconds = ref(0)
@@ -587,6 +588,7 @@ async function generatePdf() {
     }
 
     generationError.value = ''
+    generationNotice.value = ''
     isGenerating.value = true
     startGenerationTimer()
 
@@ -610,7 +612,9 @@ async function generatePdf() {
                 includeAnswerSheet.value,
             )
 
-        await workbookPdfPromise
+        const result = await workbookPdfPromise
+
+        generationNotice.value = result.warning ?? ''
     } catch (error) {
         generationError.value = error instanceof Error
             ? error.message
@@ -956,6 +960,14 @@ async function generatePdf() {
                 <span class="block h-full w-1/2 animate-pulse rounded-full bg-white/80" />
             </span>
         </button>
+
+        <p
+            v-if="generationNotice"
+            class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+            role="status"
+        >
+            {{ generationNotice }}
+        </p>
 
         <p
             v-if="generationError"

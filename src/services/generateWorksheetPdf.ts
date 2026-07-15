@@ -13,6 +13,16 @@ type WorksheetContent = {
   answers: string[]
 }
 
+type GeneratedWorksheetContent = WorksheetContent & {
+  source: 'openai' | 'fallback'
+  warning?: string
+}
+
+export type PdfGenerationResult = {
+  source: 'openai' | 'fallback' | 'local'
+  warning?: string
+}
+
 type AnswerSection = {
   title: string
   answers: string[]
@@ -861,7 +871,7 @@ async function getWorksheetQuestions(
   layout: WorksheetLayout,
   theme?: string,
   difficulty?: string,
-) : Promise<WorksheetContent> {
+) : Promise<GeneratedWorksheetContent> {
   try {
     const response = await fetch('/api/worksheet', {
       method: 'POST',
@@ -878,21 +888,37 @@ async function getWorksheetQuestions(
     const data = (await response.json()) as WorksheetResponse
 
     if (data.questions.length > 0) {
+      const source = data.source === 'fallback' ? 'fallback' : 'openai'
+
       return {
         questions: data.questions,
         answers: data.answers && data.answers.length > 0 ? data.answers : fallbackAnswers(data.questions.length),
+        source,
+        warning: source === 'fallback'
+          ? 'De AI-generator was niet beschikbaar. Er is een standaardversie van het werkblad gemaakt.'
+          : undefined,
       }
     }
 
-    return layout === 'compact-arithmetic'
+    const fallbackContent = layout === 'compact-arithmetic'
       ? fallbackCompactArithmeticContent(group, exercise, amount)
       : fallbackDefaultContent(exercise, amount)
-  } catch {
-    if (layout === 'compact-arithmetic') {
-      return fallbackCompactArithmeticContent(group, exercise, amount)
-    }
 
-    return fallbackDefaultContent(exercise, amount)
+    return {
+      ...fallbackContent,
+      source: 'fallback',
+      warning: 'De AI-generator gaf geen bruikbare opdrachten terug. Er is een standaardversie gemaakt.',
+    }
+  } catch {
+    const fallbackContent = layout === 'compact-arithmetic'
+      ? fallbackCompactArithmeticContent(group, exercise, amount)
+      : fallbackDefaultContent(exercise, amount)
+
+    return {
+      ...fallbackContent,
+      source: 'fallback',
+      warning: 'De online generator kon niet worden bereikt. Er is een standaardversie van het werkblad gemaakt.',
+    }
   }
 }
 
@@ -1053,7 +1079,7 @@ export async function generateWorksheetPdf(
     addEarlyLearningPages(doc, group, exercise, amount)
     addFooter(doc, group, exercise)
     doc.save(getWorksheetFileName(group, exercise))
-    return
+    return { source: 'local' } satisfies PdfGenerationResult
   }
 
   if (layout === 'counting') {
@@ -1066,7 +1092,7 @@ export async function generateWorksheetPdf(
       addAnswerFooter(doc, answerStartPage)
     }
     doc.save(getWorksheetFileName(group, exercise))
-    return
+    return { source: 'local' } satisfies PdfGenerationResult
   }
 
   const content = await getWorksheetQuestions(group, exercise, amount, layout, theme, difficulty)
@@ -1091,7 +1117,7 @@ export async function generateWorksheetPdf(
     }
 
     doc.save(getWorksheetFileName(group, exercise))
-    return
+    return { source: content.source, warning: content.warning } satisfies PdfGenerationResult
   }
 
   addDefaultExercisePages(doc, group, exercise, content.questions)
@@ -1107,6 +1133,7 @@ export async function generateWorksheetPdf(
   }
 
   doc.save(getWorksheetFileName(group, exercise))
+  return { source: content.source, warning: content.warning } satisfies PdfGenerationResult
 }
 
 export async function generateWorkbookPdf(
@@ -1126,6 +1153,8 @@ export async function generateWorkbookPdf(
   const doc = new jsPDF()
   let hasPages = includeCoverPage
   const answerSections: AnswerSection[] = []
+  const fallbackWarnings = new Set<string>()
+  let hasOpenAiContent = false
 
   if (includeCoverPage) {
     addWorkbookCoverPage(doc, group, activeSections, theme)
@@ -1151,6 +1180,13 @@ export async function generateWorkbookPdf(
 
     const layout = isCompactArithmeticExercise(section.exercise) ? 'compact-arithmetic' : 'default'
     const content = await getWorksheetQuestions(group, section.exercise, section.amount, layout, theme, difficulty)
+
+    if (content.source === 'openai') {
+      hasOpenAiContent = true
+    }
+    if (content.warning) {
+      fallbackWarnings.add(content.warning)
+    }
 
     answerSections.push({
       title: formatExerciseName(section.exercise),
@@ -1185,4 +1221,13 @@ export async function generateWorkbookPdf(
   }
 
   doc.save(getWorkbookFileName(group))
+
+  if (fallbackWarnings.size > 0) {
+    return {
+      source: 'fallback',
+      warning: 'Een deel van het werkboekje kon niet met AI worden gemaakt. Voor die onderdelen is standaardcontent gebruikt.',
+    } satisfies PdfGenerationResult
+  }
+
+  return { source: hasOpenAiContent ? 'openai' : 'local' } satisfies PdfGenerationResult
 }
