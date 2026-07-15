@@ -52,3 +52,22 @@ test('blijft bruikbaar op een mobiele viewport', async ({ page }) => {
 
   expect(dimensions.documentWidth).toBeLessThanOrEqual(dimensions.viewportWidth)
 })
+
+test('bundelt een groot werkboekje per oefensoort en toont voortgang', async ({ page }) => {
+  let worksheetRequests = 0
+  await page.route('**/api/worksheet', async (route) => {
+    worksheetRequests += 1
+    await new Promise((resolve) => setTimeout(resolve, 75))
+    await route.continue()
+  })
+
+  await page.getByRole('button', { name: 'Werkboekje', exact: true }).click()
+  await page.getByLabel("Aantal pagina's", { exact: true }).fill('25')
+
+  const downloadPromise = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Maak werkboekje', exact: true }).click()
+  await expect(page.getByRole('progressbar', { name: 'Voortgang werkboekje' })).toBeVisible()
+  await downloadPromise
+
+  expect(worksheetRequests).toBe(7)
+})

@@ -25,6 +25,49 @@ export type PdfGenerationResult = {
   previewUrl: string
 }
 
+export type WorkbookGenerationProgress = {
+  completed: number
+  total: number
+  exercise: string
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = []
+  let nextIndex = 0
+
+  async function runWorker() {
+    while (nextIndex < items.length) {
+      const index = nextIndex
+      nextIndex += 1
+      results[index] = await worker(items[index] as T)
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, runWorker))
+  return results
+}
+
+function sliceAndRenumberContent(
+  content: GeneratedWorksheetContent,
+  startIndex: number,
+  amount: number,
+): GeneratedWorksheetContent {
+  const renumber = (items: string[]) => items
+    .slice(startIndex, startIndex + amount)
+    .map((item, index) => `${index + 1}. ${item.replace(/^\d+\.\s*/, '')}`)
+
+  return {
+    questions: renumber(content.questions),
+    answers: renumber(content.answers),
+    source: content.source,
+    warning: content.warning,
+  }
+}
+
 function savePdfWithPreview(
   doc: jsPDF,
   fileName: string,
@@ -1100,6 +1143,7 @@ export async function generateWorkbookPdf(
   includeAnswerSheet = false,
   theme?: string,
   difficulty?: string,
+  onProgress?: (progress: WorkbookGenerationProgress) => void,
 ): Promise<PdfGenerationResult> {
   const activeSections = sections.filter((section) => section.amount > 0)
 
@@ -1112,6 +1156,44 @@ export async function generateWorkbookPdf(
   const answerSections: AnswerSection[] = []
   const fallbackWarnings = new Set<string>()
   let hasOpenAiContent = false
+  const requestsByExercise = new Map<string, { exercise: string, amount: number, layout: WorksheetLayout }>()
+
+  for (const section of activeSections) {
+    if (section.exercise.startsWith('tellen-') || earlyLearningExercises.has(section.exercise)) continue
+
+    const existingRequest = requestsByExercise.get(section.exercise)
+    const layout = isCompactArithmeticExercise(section.exercise) ? 'compact-arithmetic' : 'default'
+
+    if (existingRequest) {
+      existingRequest.amount += section.amount
+    } else {
+      requestsByExercise.set(section.exercise, { exercise: section.exercise, amount: section.amount, layout })
+    }
+  }
+
+  const contentRequests = [...requestsByExercise.values()]
+  let completedRequests = 0
+  onProgress?.({ completed: 0, total: contentRequests.length, exercise: '' })
+  const generatedEntries = await mapWithConcurrency(contentRequests, 3, async (request) => {
+    const content = await getWorksheetQuestions(
+      group,
+      request.exercise,
+      request.amount,
+      request.layout,
+      theme,
+      difficulty,
+    )
+
+    completedRequests += 1
+    onProgress?.({
+      completed: completedRequests,
+      total: contentRequests.length,
+      exercise: formatExerciseName(request.exercise),
+    })
+    return [request.exercise, content] as const
+  })
+  const generatedContentByExercise = new Map(generatedEntries)
+  const contentOffsets = new Map<string, number>()
 
   if (includeCoverPage) {
     addWorkbookCoverPage(doc, group, activeSections, theme)
@@ -1136,7 +1218,15 @@ export async function generateWorkbookPdf(
     }
 
     const layout = isCompactArithmeticExercise(section.exercise) ? 'compact-arithmetic' : 'default'
-    const content = await getWorksheetQuestions(group, section.exercise, section.amount, layout, theme, difficulty)
+    const combinedContent = generatedContentByExercise.get(section.exercise)
+
+    if (!combinedContent) {
+      throw new Error(`Geen inhoud beschikbaar voor ${formatExerciseName(section.exercise)}.`)
+    }
+
+    const contentOffset = contentOffsets.get(section.exercise) ?? 0
+    const content = sliceAndRenumberContent(combinedContent, contentOffset, section.amount)
+    contentOffsets.set(section.exercise, contentOffset + section.amount)
 
     if (content.source === 'openai') {
       hasOpenAiContent = true

@@ -4,6 +4,7 @@ import {
     generateWorkbookPdf,
     generateWorksheetPdf,
     type PdfGenerationResult,
+    type WorkbookGenerationProgress,
     type WorkbookSection,
 } from '../services/generateWorksheetPdf'
 
@@ -60,6 +61,7 @@ const generationError = ref('')
 const generationNotice = ref('')
 const lastGenerationResult = ref<PdfGenerationResult | null>(null)
 const isPreviewVisible = ref(false)
+const workbookProgress = ref<WorkbookGenerationProgress | null>(null)
 const isGenerating = ref(false)
 const generationStartedAt = ref(0)
 const elapsedSeconds = ref(0)
@@ -311,8 +313,15 @@ const submitButtonText = computed(() => isWorkbookMode.value ? 'Maak werkboekje'
 const loadingButtonText = computed(() => {
     const outputLabel = isWorkbookMode.value ? 'Werkboekje' : 'Werkblad'
     const elapsedText = elapsedSeconds.value > 0 ? ` ${elapsedSeconds.value} sec` : ''
+    const progressText = workbookProgress.value && workbookProgress.value.total > 0
+        ? ` ${workbookProgress.value.completed}/${workbookProgress.value.total}`
+        : ''
 
-    return `${outputLabel} maken...${elapsedText}`
+    return `${outputLabel} maken...${progressText}${elapsedText}`
+})
+const workbookProgressPercentage = computed(() => {
+    if (!workbookProgress.value?.total) return 0
+    return Math.round((workbookProgress.value.completed / workbookProgress.value.total) * 100)
 })
 const generationSourceLabel = computed(() => {
     if (lastGenerationResult.value?.source === 'openai') return 'Met AI gegenereerd'
@@ -612,6 +621,7 @@ async function generatePdf() {
 
     generationError.value = ''
     generationNotice.value = ''
+    workbookProgress.value = null
     releasePreview()
     isGenerating.value = true
     startGenerationTimer()
@@ -625,6 +635,9 @@ async function generatePdf() {
                 includeAnswerSheet.value,
                 activeTheme.value || undefined,
                 normalizeDifficulty(difficulty.value) || undefined,
+                (progress) => {
+                    workbookProgress.value = progress
+                },
             )
             : generateWorksheetPdf(
                 group.value,
@@ -985,6 +998,29 @@ async function generatePdf() {
                 <span class="block h-full w-1/2 animate-pulse rounded-full bg-white/80" />
             </span>
         </button>
+
+        <div
+            v-if="isGenerating && isWorkbookMode && workbookProgress && workbookProgress.total > 0"
+            class="space-y-2"
+            role="progressbar"
+            aria-label="Voortgang werkboekje"
+            :aria-valuenow="workbookProgress.completed"
+            aria-valuemin="0"
+            :aria-valuemax="workbookProgress.total"
+        >
+            <div class="flex justify-between gap-3 text-sm text-slate-600">
+                <span>
+                    {{ workbookProgress.exercise || 'Onderdelen voorbereiden' }}
+                </span>
+                <span>{{ workbookProgress.completed }} van {{ workbookProgress.total }}</span>
+            </div>
+            <div class="h-2 overflow-hidden rounded-full bg-emerald-100">
+                <div
+                    class="h-full rounded-full bg-emerald-600 transition-all"
+                    :style="{ width: `${workbookProgressPercentage}%` }"
+                />
+            </div>
+        </div>
 
         <section
             v-if="lastGenerationResult"
