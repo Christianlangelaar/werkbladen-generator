@@ -200,6 +200,9 @@ describe('WorksheetForm', () => {
     await flushPromises()
     await wrapper.get('#edit-question-0').setValue('Wat is 3 + 3?')
     await wrapper.get('#edit-answer-0').setValue('6')
+    expect(wrapper.find('a[download]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('wijzigingen die nog niet in de PDF staan')
+    expect(wrapper.findAll('button').find((button) => button.text() === 'Print na bijwerken')?.attributes('disabled')).toBeDefined()
     const updateButton = wrapper.findAll('button').find((button) => button.text() === 'Werk preview bij')
     await updateButton?.trigger('click')
     await flushPromises()
@@ -214,6 +217,8 @@ describe('WorksheetForm', () => {
       undefined,
     )
     expect(wrapper.get('iframe').attributes('src')).toBe('blob:edited')
+    expect(wrapper.get('a[download]').attributes('href')).toBe('blob:edited')
+    expect(wrapper.text()).not.toContain('wijzigingen die nog niet in de PDF staan')
   })
 
   it('kan één opdracht opnieuw genereren', async () => {

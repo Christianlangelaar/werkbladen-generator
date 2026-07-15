@@ -85,6 +85,7 @@ const regeneratingItemIndex = ref<number | null>(null)
 const presets = ref<WorksheetPreset[]>([])
 const presetName = ref('')
 const presetMessage = ref('')
+const hasUnappliedEdits = ref(false)
 const workbookProgress = ref<WorkbookGenerationProgress | null>(null)
 const isGenerating = ref(false)
 const generationStartedAt = ref(0)
@@ -799,9 +800,15 @@ function releasePreview() {
     lastGenerationResult.value = null
     isPreviewVisible.value = false
     editableItems.value = []
+    hasUnappliedEdits.value = false
 }
 
 function printPdf() {
+    if (hasUnappliedEdits.value) {
+        generationError.value = 'Werk eerst de preview bij voordat je print.'
+        return
+    }
+
     const previewWindow = previewIframe.value?.contentWindow
 
     if (!previewWindow) {
@@ -821,6 +828,12 @@ function removeEditableItem(index: number) {
 
     generationError.value = ''
     editableItems.value.splice(index, 1)
+    hasUnappliedEdits.value = true
+}
+
+function markWorksheetEditsPending() {
+    hasUnappliedEdits.value = true
+    generationError.value = ''
 }
 
 async function applyWorksheetEdits() {
@@ -844,6 +857,7 @@ async function applyWorksheetEdits() {
         lastGenerationResult.value = result
         editableItems.value = result.editableItems?.map((item) => ({ ...item })) ?? []
         isPreviewVisible.value = true
+        hasUnappliedEdits.value = false
     } catch (error) {
         generationError.value = error instanceof Error ? error.message : 'De wijzigingen konden niet worden verwerkt.'
     }
@@ -914,6 +928,7 @@ async function generatePdf() {
 
         lastGenerationResult.value = result
         editableItems.value = result.editableItems?.map((item) => ({ ...item })) ?? []
+        hasUnappliedEdits.value = false
         isPreviewVisible.value = true
         generationNotice.value = result.warning ?? ''
         await nextTick()
@@ -1566,6 +1581,7 @@ async function generatePdf() {
                             v-model="item.question"
                             rows="2"
                             class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-950 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+                            @input="markWorksheetEditsPending"
                         />
 
                         <label
@@ -1579,6 +1595,7 @@ async function generatePdf() {
                             v-model="item.answer"
                             rows="2"
                             class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-950 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+                            @input="markWorksheetEditsPending"
                         />
 
                         <div class="mt-3 flex flex-wrap gap-2">
@@ -1602,16 +1619,26 @@ async function generatePdf() {
 
                     <button
                         type="button"
-                        class="w-full rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800"
+                        class="w-full rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-default disabled:opacity-50"
+                        :disabled="!hasUnappliedEdits"
                         @click="applyWorksheetEdits"
                     >
-                        Werk preview bij
+                        {{ hasUnappliedEdits ? 'Werk preview bij' : 'Preview is bijgewerkt' }}
                     </button>
                 </div>
             </details>
 
+            <p
+                v-if="hasUnappliedEdits"
+                class="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900"
+                role="status"
+            >
+                Je hebt wijzigingen die nog niet in de PDF staan. Werk de preview bij om downloaden en printen weer beschikbaar te maken.
+            </p>
+
             <div class="mt-4 grid gap-2 sm:grid-cols-3">
                 <a
+                    v-if="!hasUnappliedEdits"
                     :href="lastGenerationResult.previewUrl"
                     :download="lastGenerationResult.fileName"
                     class="rounded-lg bg-emerald-700 px-4 py-2 text-center text-sm font-semibold text-white transition hover:bg-emerald-800"
@@ -1620,11 +1647,21 @@ async function generatePdf() {
                 </a>
 
                 <button
+                    v-else
                     type="button"
-                    class="rounded-lg border border-emerald-300 bg-white px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-50"
+                    disabled
+                    class="cursor-not-allowed rounded-lg bg-slate-300 px-4 py-2 text-center text-sm font-semibold text-slate-600"
+                >
+                    Download na bijwerken
+                </button>
+
+                <button
+                    type="button"
+                    class="rounded-lg border border-emerald-300 bg-white px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-500"
+                    :disabled="hasUnappliedEdits"
                     @click="printPdf"
                 >
-                    Print PDF
+                    {{ hasUnappliedEdits ? 'Print na bijwerken' : 'Print PDF' }}
                 </button>
 
                 <button

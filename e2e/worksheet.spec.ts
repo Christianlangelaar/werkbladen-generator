@@ -65,10 +65,14 @@ test('bewerkt, verwijdert en vernieuwt losse opdrachten voor download', async ({
   await page.getByLabel('Vraag', { exact: true }).first().fill('Een zelf aangepaste opdracht')
   await page.getByLabel('Antwoord', { exact: true }).first().fill('Een eigen antwoord')
   await page.getByRole('button', { name: 'Verwijder opdracht', exact: true }).last().click()
+  await expect(page.getByText('Je hebt wijzigingen die nog niet in de PDF staan. Werk de preview bij om downloaden en printen weer beschikbaar te maken.', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Download na bijwerken', exact: true })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Print na bijwerken', exact: true })).toBeDisabled()
   await page.getByRole('button', { name: 'Werk preview bij', exact: true }).click()
 
   await expect(page.getByText('Bewerk opdrachten (1)', { exact: true })).toBeVisible()
   await expect(preview).not.toHaveAttribute('src', originalPreviewUrl ?? '')
+  await expect(page.getByRole('link', { name: 'Download PDF', exact: true })).toBeEnabled()
 
   await page.getByRole('button', { name: 'Opnieuw genereren', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Opnieuw genereren', exact: true })).toBeEnabled()
