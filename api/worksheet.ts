@@ -1,6 +1,6 @@
 import { generateWorksheetContent } from '../server/generateWorksheetContent'
 import { RequestError, validateWorksheetRequest } from '../server/worksheetRequest'
-import { getRateLimitHeaders, worksheetRateLimiter } from '../server/rateLimit'
+import { checkWorksheetRateLimit, getRateLimitHeaders } from '../server/rateLimit'
 
 const maxRequestBodyBytes = 16 * 1024
 const headers = {
@@ -45,7 +45,7 @@ async function handleRequest(request: Request) {
   const clientIdentifier = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
     || request.headers.get('x-real-ip')
     || 'unknown'
-  const rateLimit = worksheetRateLimiter.check(clientIdentifier)
+  const rateLimit = await checkWorksheetRateLimit(clientIdentifier)
   const rateLimitHeaders = getRateLimitHeaders(rateLimit)
 
   if (!rateLimit.allowed) {

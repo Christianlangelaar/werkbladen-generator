@@ -1,11 +1,22 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import handler from './worksheet'
 
 const endpoint = 'https://example.test/api/worksheet'
 const originalApiKey = process.env.OPENAI_API_KEY
+const originalRedisUrl = process.env.UPSTASH_REDIS_REST_URL
+const originalRedisToken = process.env.UPSTASH_REDIS_REST_TOKEN
+
+beforeEach(() => {
+  delete process.env.UPSTASH_REDIS_REST_URL
+  delete process.env.UPSTASH_REDIS_REST_TOKEN
+})
 
 afterEach(() => {
   process.env.OPENAI_API_KEY = originalApiKey
+  if (originalRedisUrl === undefined) delete process.env.UPSTASH_REDIS_REST_URL
+  else process.env.UPSTASH_REDIS_REST_URL = originalRedisUrl
+  if (originalRedisToken === undefined) delete process.env.UPSTASH_REDIS_REST_TOKEN
+  else process.env.UPSTASH_REDIS_REST_TOKEN = originalRedisToken
 })
 
 function request(body: unknown, method = 'POST', clientIdentifier?: string) {

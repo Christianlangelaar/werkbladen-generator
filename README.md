@@ -37,11 +37,12 @@ Vercel is de aanbevolen host voor dit project. De Vite-frontend wordt statisch g
    - `OPENAI_API_KEY`
    - `OPENAI_MODEL` (optioneel)
    - `WORKSHEET_RATE_LIMIT` (optioneel, standaard `20` per minuut)
+   - `UPSTASH_REDIS_REST_URL` en `UPSTASH_REDIS_REST_TOKEN` (aanbevolen voor een gedeelde limiter)
 5. Voeg de variabelen toe aan Production en desgewenst Preview.
 6. Deploy en maak een testwerkblad.
 
 `vercel.json` stelt de maximale functieduur in op 60 seconden en laat client-side routes terugvallen op `index.html`.
 
-De API bevat een basislimiet per IP en geeft bij overschrijding lokale standaardcontent terug. Deze limiet wordt per draaiende serverinstantie bijgehouden. Gebruik voor hogere verkeersvolumes aanvullend een gedeelde rate limiter of Vercel Firewall-regel.
+De API bevat een limiet per IP en geeft bij overschrijding lokale standaardcontent terug. Met de twee Upstash-variabelen gebruikt iedere serverless instantie dezelfde atomische Redis-teller. Zonder deze variabelen valt de app terug op een teller per draaiende serverinstantie; dat is geschikt voor lokaal gebruik, maar niet als enige bescherming bij publiek productiegebruik. Maak voor productie een Upstash Redis-database aan en kopieer de REST-gegevens uit het databaseoverzicht naar Vercel.
 
 Het gratis Hobby-plan is bedoeld voor persoonlijk, niet-commercieel gebruik. Gebruik voor een professionele of commerciële publicatie het Pro-plan en stel in Vercel een passend uitgavenbudget en waarschuwingen in.
