@@ -13,7 +13,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Vul in `.env.local` minimaal `OPENAI_API_KEY` in. `OPENAI_MODEL` is optioneel en staat standaard op `gpt-5.5`.
+Vul in `.env.local` minimaal `OPENAI_API_KEY` in. `OPENAI_MODEL` is optioneel en staat standaard op `gpt-5.5`. Met `WORKSHEET_RATE_LIMIT` kun je de standaardlimiet van 20 AI-aanvragen per IP per minuut aanpassen.
 
 ## Controles
 
@@ -36,9 +36,12 @@ Vercel is de aanbevolen host voor dit project. De Vite-frontend wordt statisch g
 4. Voeg bij Project Settings → Environment Variables toe:
    - `OPENAI_API_KEY`
    - `OPENAI_MODEL` (optioneel)
+   - `WORKSHEET_RATE_LIMIT` (optioneel, standaard `20` per minuut)
 5. Voeg de variabelen toe aan Production en desgewenst Preview.
 6. Deploy en maak een testwerkblad.
 
 `vercel.json` stelt de maximale functieduur in op 60 seconden en laat client-side routes terugvallen op `index.html`.
+
+De API bevat een basislimiet per IP en geeft bij overschrijding lokale standaardcontent terug. Deze limiet wordt per draaiende serverinstantie bijgehouden. Gebruik voor hogere verkeersvolumes aanvullend een gedeelde rate limiter of Vercel Firewall-regel.
 
 Het gratis Hobby-plan is bedoeld voor persoonlijk, niet-commercieel gebruik. Gebruik voor een professionele of commerciële publicatie het Pro-plan en stel in Vercel een passend uitgavenbudget en waarschuwingen in.

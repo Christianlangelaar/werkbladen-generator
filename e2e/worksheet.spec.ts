@@ -72,3 +72,19 @@ test('bundelt een groot werkboekje per oefensoort en toont voortgang', async ({ 
 
   expect(worksheetRequests).toBe(7)
 })
+
+test('maakt lokale content wanneer de online limiet is bereikt', async ({ page }) => {
+  await page.route('**/api/worksheet', (route) => route.fulfill({
+    status: 429,
+    contentType: 'application/json',
+    headers: { 'Retry-After': '42' },
+    body: JSON.stringify({ error: 'Te veel verzoeken.' }),
+  }))
+
+  const downloadPromise = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Maak werkblad', exact: true }).click()
+  await downloadPromise
+
+  await expect(page.getByRole('status')).toContainText('limiet voor online werkbladen is bereikt')
+  await expect(page.getByRole('status')).toContainText('42 seconden')
+})

@@ -904,6 +904,21 @@ async function getWorksheetQuestions(
       body: JSON.stringify({ group, exercise, amount, layout, theme, difficulty }),
     })
 
+    if (response.status === 429) {
+      const retryAfter = Number(response.headers.get('Retry-After'))
+      const waitText = Number.isFinite(retryAfter) ? ` Probeer het over ${retryAfter} seconden opnieuw.` : ''
+
+      const fallbackContent = layout === 'compact-arithmetic'
+        ? fallbackCompactArithmeticContent(group, exercise, amount)
+        : createFallbackWorksheetContent(group, exercise, amount)
+
+      return {
+        ...fallbackContent,
+        source: 'fallback',
+        warning: `De limiet voor online werkbladen is bereikt. Er is een standaardversie gemaakt.${waitText}`,
+      }
+    }
+
     if (!response.ok) {
       throw new Error('Werkblad API gaf geen geldige response.')
     }

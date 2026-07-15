@@ -8,10 +8,13 @@ afterEach(() => {
   process.env.OPENAI_API_KEY = originalApiKey
 })
 
-function request(body: unknown, method = 'POST') {
+function request(body: unknown, method = 'POST', clientIdentifier?: string) {
   const init: RequestInit = {
     method,
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(clientIdentifier ? { 'X-Forwarded-For': clientIdentifier } : {}),
+    },
   }
 
   if (method === 'POST') init.body = JSON.stringify(body)
@@ -46,6 +49,30 @@ describe('production worksheet endpoint', () => {
     expect(response.status).toBe(503)
     await expect(response.json()).resolves.toEqual({
       error: 'De werkbladgenerator is tijdelijk niet beschikbaar.',
+    })
+  })
+
+  it('begrenst het aantal verzoeken per client', async () => {
+    delete process.env.OPENAI_API_KEY
+    const body = {
+      group: '4',
+      exercise: 'contextsommen',
+      amount: 2,
+      layout: 'default',
+    }
+
+    for (let requestNumber = 0; requestNumber < 20; requestNumber += 1) {
+      const response = await handler.fetch(request(body, 'POST', 'rate-limit-test'))
+      expect(response.status).toBe(503)
+    }
+
+    const response = await handler.fetch(request(body, 'POST', 'rate-limit-test'))
+
+    expect(response.status).toBe(429)
+    expect(response.headers.get('retry-after')).toBe('60')
+    expect(response.headers.get('ratelimit-remaining')).toBe('0')
+    await expect(response.json()).resolves.toEqual({
+      error: 'Je hebt te veel werkbladen kort na elkaar aangevraagd. Probeer het over een minuut opnieuw.',
     })
   })
 })

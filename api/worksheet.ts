@@ -1,6 +1,7 @@
 import OpenAI from 'openai'
 import { getWorksheetPrompt } from '../prompts'
 import { RequestError, validateWorksheetRequest } from '../server/worksheetRequest'
+import { getRateLimitHeaders, worksheetRateLimiter } from '../server/rateLimit'
 
 const maxRequestBodyBytes = 16 * 1024
 const headers = {
@@ -42,6 +43,20 @@ async function handleRequest(request: Request) {
     return json({ error: 'Alleen POST-verzoeken zijn toegestaan.' }, 405, { Allow: 'POST' })
   }
 
+  const clientIdentifier = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || request.headers.get('x-real-ip')
+    || 'unknown'
+  const rateLimit = worksheetRateLimiter.check(clientIdentifier)
+  const rateLimitHeaders = getRateLimitHeaders(rateLimit)
+
+  if (!rateLimit.allowed) {
+    return json(
+      { error: 'Je hebt te veel werkbladen kort na elkaar aangevraagd. Probeer het over een minuut opnieuw.' },
+      429,
+      { ...rateLimitHeaders, 'Retry-After': String(rateLimit.retryAfterSeconds) },
+    )
+  }
+
   try {
     const { group, exercise, amount, layout, theme, difficulty } = validateWorksheetRequest(
       await parseRequestBody(request),
@@ -49,7 +64,7 @@ async function handleRequest(request: Request) {
     const apiKey = process.env.OPENAI_API_KEY
 
     if (!apiKey) {
-      return json({ error: 'De werkbladgenerator is tijdelijk niet beschikbaar.' }, 503)
+      return json({ error: 'De werkbladgenerator is tijdelijk niet beschikbaar.' }, 503, rateLimitHeaders)
     }
 
     const openai = new OpenAI({ apiKey })
@@ -80,14 +95,18 @@ async function handleRequest(request: Request) {
       return `${index + 1}. ${answer.replace(/^\d+\.\s*/, '').trim()}`
     })
 
-    return json({ questions, answers, source: 'openai', layout })
+    return json({ questions, answers, source: 'openai', layout }, 200, rateLimitHeaders)
   } catch (error) {
     if (error instanceof RequestError) {
-      return json({ error: error.message }, error.statusCode)
+      return json({ error: error.message }, error.statusCode, rateLimitHeaders)
     }
 
     console.error('Werkblad genereren mislukt.', error)
-    return json({ error: 'Het werkblad kon niet worden gegenereerd. Probeer het later opnieuw.' }, 500)
+    return json(
+      { error: 'Het werkblad kon niet worden gegenereerd. Probeer het later opnieuw.' },
+      500,
+      rateLimitHeaders,
+    )
   }
 }
 
