@@ -38,6 +38,12 @@ type StoredWorksheetSettings = {
     difficulty?: string
 }
 
+type WorksheetPreset = {
+    id: string
+    name: string
+    settings: StoredWorksheetSettings
+}
+
 const defaultGroup = '4'
 const defaultExercise = 'contextsommen'
 const defaultMode: WorksheetMode = 'worksheet'
@@ -53,6 +59,7 @@ const storyQuestionsPerPage = 10
 const standardQuestionsPerPage = 18
 const countingQuestionsPerPage = 6
 const settingsStorageKey = 'worksheet-generator-settings'
+const presetsStorageKey = 'worksheet-generator-presets'
 
 const mode = ref<WorksheetMode>(defaultMode)
 const group = ref(defaultGroup)
@@ -75,6 +82,9 @@ const previewIframe = ref<HTMLIFrameElement | null>(null)
 const generationResultTitle = ref<HTMLElement | null>(null)
 const editableItems = ref<EditableWorksheetItem[]>([])
 const regeneratingItemIndex = ref<number | null>(null)
+const presets = ref<WorksheetPreset[]>([])
+const presetName = ref('')
+const presetMessage = ref('')
 const workbookProgress = ref<WorkbookGenerationProgress | null>(null)
 const isGenerating = ref(false)
 const generationStartedAt = ref(0)
@@ -586,47 +596,32 @@ function normalizeBoolean(value: unknown) {
     return typeof value === 'boolean' ? value : false
 }
 
-function loadStoredSettings() {
-    try {
-        const storedSettings = window.localStorage.getItem(settingsStorageKey)
+function applySettings(settings: StoredWorksheetSettings) {
+    const storedGroup = settings.group && exerciseOptionGroupsByGroup[settings.group]
+        ? settings.group
+        : defaultGroup
 
-        if (!storedSettings) {
-            return
-        }
+    mode.value = normalizeMode(settings.mode)
+    group.value = storedGroup
+    exercise.value = settings.exercise && isValidExerciseForGroup(storedGroup, settings.exercise)
+        ? settings.exercise
+        : getFirstExerciseForGroup(storedGroup)
+    const storedAssignmentAmount = settings.assignmentAmount
+        ?? (typeof settings.pageCount === 'number'
+            ? settings.pageCount * questionsPerPage.value
+            : undefined)
 
-        const parsedSettings = JSON.parse(storedSettings) as StoredWorksheetSettings
-        const storedGroup = parsedSettings.group && exerciseOptionGroupsByGroup[parsedSettings.group]
-            ? parsedSettings.group
-            : defaultGroup
-
-        mode.value = normalizeMode(parsedSettings.mode)
-        group.value = storedGroup
-        exercise.value = parsedSettings.exercise && isValidExerciseForGroup(storedGroup, parsedSettings.exercise)
-            ? parsedSettings.exercise
-            : getFirstExerciseForGroup(storedGroup)
-        const storedAssignmentAmount = parsedSettings.assignmentAmount
-            ?? (typeof parsedSettings.pageCount === 'number'
-                ? parsedSettings.pageCount * questionsPerPage.value
-                : undefined)
-
-        pageCount.value = normalizePageCount(parsedSettings.pageCount)
-        workbookItems.value = normalizeWorkbookItems(
-            parsedSettings.workbookItems,
-            storedGroup,
-            parsedSettings.pageCount,
-        )
-        assignmentAmount.value = normalizeAssignmentAmount(storedAssignmentAmount)
-        includeCoverPage.value = normalizeBoolean(parsedSettings.includeCoverPage)
-        includeAnswerSheet.value = normalizeBoolean(parsedSettings.includeAnswerSheet)
-        theme.value = normalizeTheme(parsedSettings.theme)
-        difficulty.value = normalizeDifficulty(parsedSettings.difficulty)
-    } catch {
-        window.localStorage.removeItem(settingsStorageKey)
-    }
+    pageCount.value = normalizePageCount(settings.pageCount)
+    workbookItems.value = normalizeWorkbookItems(settings.workbookItems, storedGroup, settings.pageCount)
+    assignmentAmount.value = normalizeAssignmentAmount(storedAssignmentAmount)
+    includeCoverPage.value = normalizeBoolean(settings.includeCoverPage)
+    includeAnswerSheet.value = normalizeBoolean(settings.includeAnswerSheet)
+    theme.value = normalizeTheme(settings.theme)
+    difficulty.value = normalizeDifficulty(settings.difficulty)
 }
 
-function saveStoredSettings() {
-    window.localStorage.setItem(settingsStorageKey, JSON.stringify({
+function currentSettings(): StoredWorksheetSettings {
+    return {
         mode: mode.value,
         group: group.value,
         exercise: exercise.value,
@@ -640,10 +635,79 @@ function saveStoredSettings() {
         includeAnswerSheet: includeAnswerSheet.value,
         theme: normalizeTheme(theme.value),
         difficulty: normalizeDifficulty(difficulty.value),
-    }))
+    }
+}
+
+function loadStoredSettings() {
+    try {
+        const storedSettings = window.localStorage.getItem(settingsStorageKey)
+        if (storedSettings) applySettings(JSON.parse(storedSettings) as StoredWorksheetSettings)
+    } catch {
+        window.localStorage.removeItem(settingsStorageKey)
+    }
+}
+
+function saveStoredSettings() {
+    window.localStorage.setItem(settingsStorageKey, JSON.stringify(currentSettings()))
+}
+
+function savePresets() {
+    window.localStorage.setItem(presetsStorageKey, JSON.stringify(presets.value))
+}
+
+function loadPresets() {
+    try {
+        const stored = JSON.parse(window.localStorage.getItem(presetsStorageKey) ?? '[]') as unknown
+        if (!Array.isArray(stored)) return
+        presets.value = stored
+            .filter((preset): preset is WorksheetPreset => Boolean(
+                preset
+                && typeof preset === 'object'
+                && typeof (preset as WorksheetPreset).id === 'string'
+                && typeof (preset as WorksheetPreset).name === 'string'
+                && (preset as WorksheetPreset).settings,
+            ))
+            .slice(0, 20)
+    } catch {
+        window.localStorage.removeItem(presetsStorageKey)
+    }
+}
+
+function savePreset() {
+    const name = presetName.value.trim().slice(0, 40)
+    if (!name) {
+        presetMessage.value = 'Geef het sjabloon eerst een naam.'
+        return
+    }
+
+    const existing = presets.value.find((preset) => preset.name.toLocaleLowerCase('nl') === name.toLocaleLowerCase('nl'))
+    if (existing) {
+        existing.name = name
+        existing.settings = currentSettings()
+        presetMessage.value = `Sjabloon “${name}” is bijgewerkt.`
+    } else {
+        presets.value.push({ id: crypto.randomUUID(), name, settings: currentSettings() })
+        presetMessage.value = `Sjabloon “${name}” is opgeslagen.`
+    }
+    presetName.value = ''
+    savePresets()
+}
+
+function applyPreset(preset: WorksheetPreset) {
+    releasePreview()
+    applySettings(preset.settings)
+    presetMessage.value = `Sjabloon “${preset.name}” is toegepast.`
+}
+
+function removePreset(id: string) {
+    const preset = presets.value.find((candidate) => candidate.id === id)
+    presets.value = presets.value.filter((candidate) => candidate.id !== id)
+    savePresets()
+    presetMessage.value = preset ? `Sjabloon “${preset.name}” is verwijderd.` : ''
 }
 
 loadStoredSettings()
+loadPresets()
 
 if (workbookItems.value.length === 0) {
     workbookItems.value = createDefaultWorkbookItems(group.value)
@@ -871,6 +935,86 @@ async function generatePdf() {
         :aria-busy="isGenerating ? 'true' : 'false'"
         @submit.prevent="generatePdf"
     >
+        <details class="rounded-xl border border-emerald-200 bg-emerald-50/60">
+            <summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-emerald-950">
+                Mijn sjablonen{{ presets.length > 0 ? ` (${presets.length})` : '' }}
+            </summary>
+
+            <div class="space-y-3 border-t border-emerald-100 p-4">
+                <div class="flex flex-col gap-2 sm:flex-row">
+                    <div class="flex-1">
+                        <label
+                            for="preset-name"
+                            class="sr-only"
+                        >
+                            Naam van sjabloon
+                        </label>
+                        <input
+                            id="preset-name"
+                            v-model="presetName"
+                            type="text"
+                            maxlength="40"
+                            placeholder="Bijv. Weektaak groep 4"
+                            class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+                            @keydown.enter.prevent="savePreset"
+                        >
+                    </div>
+                    <button
+                        type="button"
+                        class="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800"
+                        @click="savePreset"
+                    >
+                        Huidige instellingen opslaan
+                    </button>
+                </div>
+
+                <ul
+                    v-if="presets.length > 0"
+                    class="space-y-2"
+                    aria-label="Opgeslagen sjablonen"
+                >
+                    <li
+                        v-for="preset in presets"
+                        :key="preset.id"
+                        class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-emerald-100 bg-white p-3"
+                    >
+                        <span class="text-sm font-semibold text-slate-800">{{ preset.name }}</span>
+                        <span class="flex gap-2">
+                            <button
+                                type="button"
+                                class="rounded-md border border-emerald-300 px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-50"
+                                @click="applyPreset(preset)"
+                            >
+                                Toepassen
+                            </button>
+                            <button
+                                type="button"
+                                class="rounded-md border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50"
+                                :aria-label="`Verwijder sjabloon ${preset.name}`"
+                                @click="removePreset(preset.id)"
+                            >
+                                Verwijder
+                            </button>
+                        </span>
+                    </li>
+                </ul>
+                <p
+                    v-else
+                    class="text-sm text-slate-600"
+                >
+                    Sla een combinatie van groep, oefeningen, thema en opties op voor later.
+                </p>
+
+                <p
+                    v-if="presetMessage"
+                    class="text-sm text-emerald-800"
+                    role="status"
+                >
+                    {{ presetMessage }}
+                </p>
+            </div>
+        </details>
+
         <div>
             <label class="mb-2 block text-sm font-medium text-slate-700">
                 Ik wil maken

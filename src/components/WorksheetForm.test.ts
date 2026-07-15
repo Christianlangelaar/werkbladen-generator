@@ -72,6 +72,26 @@ describe('WorksheetForm', () => {
     expect(stored.exercise).toBe('breuken')
   })
 
+  it('slaat benoemde sjablonen op, past ze toe en verwijdert ze', async () => {
+    const wrapper = mount(WorksheetForm)
+
+    await wrapper.get('#group').setValue('7')
+    await wrapper.get('#exercise').setValue('breuken')
+    await wrapper.get('#preset-name').setValue('Weektaak groep 7')
+    const saveButton = wrapper.findAll('button').find((button) => button.text() === 'Huidige instellingen opslaan')
+    await saveButton?.trigger('click')
+
+    expect(JSON.parse(window.localStorage.getItem('worksheet-generator-presets') ?? '[]')).toHaveLength(1)
+    await wrapper.get('#group').setValue('4')
+    const applyButton = wrapper.findAll('button').find((button) => button.text() === 'Toepassen')
+    await applyButton?.trigger('click')
+    expect(wrapper.get('#group').element).toHaveProperty('value', '7')
+    expect(wrapper.get('#exercise').element).toHaveProperty('value', 'breuken')
+
+    await wrapper.get('button[aria-label="Verwijder sjabloon Weektaak groep 7"]').trigger('click')
+    expect(JSON.parse(window.localStorage.getItem('worksheet-generator-presets') ?? '[]')).toEqual([])
+  })
+
   it('blokkeert genereren bij een ongeldig aantal', async () => {
     const wrapper = mount(WorksheetForm)
 

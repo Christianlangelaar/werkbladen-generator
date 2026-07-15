@@ -2,8 +2,9 @@ import { expect, test } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => window.localStorage.clear())
   await page.goto('/')
+  await page.evaluate(() => window.localStorage.clear())
+  await page.reload()
 })
 
 test('healthcheck is beschikbaar voor monitoring', async ({ request }) => {
@@ -73,6 +74,23 @@ test('bewerkt, verwijdert en vernieuwt losse opdrachten voor download', async ({
   await expect(page.getByRole('button', { name: 'Opnieuw genereren', exact: true })).toBeEnabled()
 })
 
+test('bewaart en hergebruikt een benoemd sjabloon', async ({ page }) => {
+  await page.getByLabel('Groep', { exact: true }).selectOption('7')
+  await page.getByLabel('Oefensoort', { exact: true }).selectOption('breuken')
+  await page.getByText('Mijn sjablonen', { exact: true }).click()
+  await page.getByLabel('Naam van sjabloon', { exact: true }).fill('Rekenen groep 7')
+  await page.getByRole('button', { name: 'Huidige instellingen opslaan', exact: true }).click()
+  await expect(page.getByRole('status')).toContainText('is opgeslagen')
+
+  await page.reload()
+  await page.getByLabel('Groep', { exact: true }).selectOption('4')
+  await page.getByText('Mijn sjablonen (1)', { exact: true }).click()
+  await page.getByRole('button', { name: 'Toepassen', exact: true }).click()
+
+  await expect(page.getByLabel('Groep', { exact: true })).toHaveValue('7')
+  await expect(page.getByLabel('Oefensoort', { exact: true })).toHaveValue('breuken')
+})
+
 test('blijft bruikbaar op een mobiele viewport', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 })
   await page.reload()
@@ -88,7 +106,8 @@ test('blijft bruikbaar op een mobiele viewport', async ({ page }) => {
     fieldWidths: [...document.querySelectorAll('select, input[type="number"], button[type="submit"]')]
       .map((element) => element.getBoundingClientRect().width),
     controlHeights: [...document.querySelectorAll('select, input[type="number"], button')]
-      .map((element) => element.getBoundingClientRect().height),
+      .map((element) => element.getBoundingClientRect().height)
+      .filter((height) => height > 0),
   }))
 
   expect(dimensions.documentWidth).toBeLessThanOrEqual(dimensions.viewportWidth)
@@ -111,6 +130,8 @@ test('voldoet in beide modi aan de geautomatiseerde toegankelijkheidscontrole', 
 })
 
 test('kan de hoofdflow volledig met het toetsenbord bedienen', async ({ page }) => {
+  await page.keyboard.press('Tab')
+  await expect(page.locator('summary')).toBeFocused()
   await page.keyboard.press('Tab')
   await expect(page.getByRole('button', { name: 'Werkblad', exact: true })).toBeFocused()
   await page.keyboard.press('Tab')
