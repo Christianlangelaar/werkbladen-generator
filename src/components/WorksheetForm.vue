@@ -1,11 +1,9 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import {
-    generateWorkbookPdf,
-    generateWorksheetPdf,
-    type PdfGenerationResult,
-    type WorkbookGenerationProgress,
-    type WorkbookSection,
+import type {
+    PdfGenerationResult,
+    WorkbookGenerationProgress,
+    WorkbookSection,
 } from '../services/generateWorksheetPdf'
 
 type WorksheetMode = 'worksheet' | 'workbook'
@@ -627,6 +625,7 @@ async function generatePdf() {
     startGenerationTimer()
 
     try {
+        const { generateWorkbookPdf, generateWorksheetPdf } = await import('../services/generateWorksheetPdf')
         const workbookPdfPromise = isWorkbookMode.value
             ? generateWorkbookPdf(
                 group.value,
