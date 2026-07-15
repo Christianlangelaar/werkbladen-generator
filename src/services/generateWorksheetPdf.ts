@@ -1061,7 +1061,7 @@ export async function generateWorksheetPdf(
   theme?: string,
   difficulty?: string,
   includeAnswerSheet = false,
-) {
+): Promise<PdfGenerationResult> {
   if (exercise.startsWith('tellen-')) {
     layout = 'counting'
   }
@@ -1143,7 +1143,7 @@ export async function generateWorkbookPdf(
   includeAnswerSheet = false,
   theme?: string,
   difficulty?: string,
-) {
+): Promise<PdfGenerationResult> {
   const activeSections = sections.filter((section) => section.amount > 0)
 
   if (activeSections.length === 0) {

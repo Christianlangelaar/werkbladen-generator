@@ -106,7 +106,7 @@ function normalizeDifficulty(difficulty: unknown) {
   return typeof difficulty === 'string' && difficultyOptions.has(difficulty) ? difficulty : undefined
 }
 
-class RequestError extends Error {
+export class RequestError extends Error {
   constructor(
     message: string,
     readonly statusCode = 400,
@@ -115,7 +115,7 @@ class RequestError extends Error {
   }
 }
 
-function validateWorksheetRequest(value: unknown): ValidatedWorksheetRequest {
+export function validateWorksheetRequest(value: unknown): ValidatedWorksheetRequest {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new RequestError('Het verzoek heeft geen geldig formaat.')
   }
