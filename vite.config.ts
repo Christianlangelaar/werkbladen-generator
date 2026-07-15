@@ -5,6 +5,7 @@ import dotenv from 'dotenv'
 import OpenAI from 'openai'
 import { getWorksheetPrompt } from './prompts'
 import { RequestError, validateWorksheetRequest } from './server/worksheetRequest'
+import { createFallbackWorksheetContent } from './shared/fallbackWorksheet'
 
 dotenv.config({ path: '.env.local' })
 
@@ -14,68 +15,7 @@ type WorksheetContent = {
 }
 
 const maxRequestBodyBytes = 16 * 1024
-const readingExercises = new Set([
-  'begrijpend-lezen',
-])
 
-function fallbackQuestions(amount: number, startIndex = 0) {
-  return Array.from({ length: amount }, (_, index) => `${startIndex + index + 1}. __________________________________________`)
-}
-
-function fallbackAnswers(amount: number, startIndex = 0) {
-  return Array.from({ length: amount }, (_, index) => `${startIndex + index + 1}. Antwoord niet beschikbaar.`)
-}
-
-function fallbackReadingContent(amount: number, startIndex = 0): WorksheetContent {
-  const readingItems = [
-    {
-      text: 'Mila zet haar tas bij de deur. Daarna pakt ze haar broodtrommel en loopt ze naar school.',
-      question: 'Waar zet Mila haar tas?',
-      answer: 'Bij de deur.',
-    },
-    {
-      text: 'In de tuin staat een kleine boom. Sam geeft de boom water, omdat de grond erg droog is.',
-      question: 'Waarom geeft Sam de boom water?',
-      answer: 'Omdat de grond erg droog is.',
-    },
-    {
-      text: 'Noor leest een boek op de bank. Als het donker wordt, doet ze de lamp aan.',
-      question: 'Wat doet Noor als het donker wordt?',
-      answer: 'Ze doet de lamp aan.',
-    },
-    {
-      text: 'De klas gaat naar de bibliotheek. Iedereen mag een boek kiezen om mee naar huis te nemen.',
-      question: 'Waar gaat de klas naartoe?',
-      answer: 'Naar de bibliotheek.',
-    },
-  ]
-  const fallbackItem = readingItems[0] as typeof readingItems[number]
-  const items = Array.from({ length: amount }, (_, index) => {
-    const item = readingItems[(startIndex + index) % readingItems.length] ?? fallbackItem
-    const questionIndex = startIndex + index + 1
-
-    return {
-      question: `${questionIndex}. ${item.text}\n${item.question}`,
-      answer: `${questionIndex}. ${item.answer}`,
-    }
-  })
-
-  return {
-    questions: items.map((item) => item.question),
-    answers: items.map((item) => item.answer),
-  }
-}
-
-function fallbackDefaultContent(exercise: string, amount: number, startIndex = 0): WorksheetContent {
-  if (readingExercises.has(exercise)) {
-    return fallbackReadingContent(amount, startIndex)
-  }
-
-  return {
-    questions: fallbackQuestions(amount, startIndex),
-    answers: fallbackAnswers(amount, startIndex),
-  }
-}
 
 function getCompactArithmeticQuestionAndAnswer(group: string, exercise: string, questionIndex: number) {
   const groupNumber = Number(group) || 4
@@ -180,7 +120,7 @@ function padContent(
   const missingAmount = amount - Math.min(paddedQuestions.length, paddedAnswers.length)
   const fallback = layout === 'compact-arithmetic'
     ? fallbackCompactArithmeticContent(group, exercise, missingAmount, Math.min(paddedQuestions.length, paddedAnswers.length))
-    : fallbackDefaultContent(exercise, missingAmount, Math.min(paddedQuestions.length, paddedAnswers.length))
+    : createFallbackWorksheetContent(group, exercise, missingAmount, Math.min(paddedQuestions.length, paddedAnswers.length))
 
   return {
     questions: [...paddedQuestions, ...fallback.questions].slice(0, amount),
@@ -258,7 +198,7 @@ export default defineConfig({
             if (!process.env.OPENAI_API_KEY) {
               const fallbackContent = layout === 'compact-arithmetic'
                 ? fallbackCompactArithmeticContent(group, exercise, amount)
-                : fallbackDefaultContent(exercise, amount)
+                : createFallbackWorksheetContent(group, exercise, amount)
 
               sendJson(res, 200, {
                 questions: fallbackContent.questions,

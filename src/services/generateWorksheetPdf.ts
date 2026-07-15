@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf'
+import { createFallbackWorksheetContent } from '../../shared/fallbackWorksheet'
 
 type WorksheetResponse = {
   questions: string[]
@@ -136,62 +137,8 @@ function setDefaultBodyTextStyle(doc: jsPDF) {
   doc.setTextColor(0, 0, 0)
 }
 
-function fallbackQuestions(amount: number) {
-  return Array.from({ length: amount }, (_, index) => `${index + 1}. __________________________________________`)
-}
-
 function fallbackAnswers(amount: number) {
   return Array.from({ length: amount }, (_, index) => `${index + 1}. Antwoord niet beschikbaar.`)
-}
-
-function fallbackReadingContent(amount: number): WorksheetContent {
-  const readingItems = [
-    {
-      text: 'Mila zet haar tas bij de deur. Daarna pakt ze haar broodtrommel en loopt ze naar school.',
-      question: 'Waar zet Mila haar tas?',
-      answer: 'Bij de deur.',
-    },
-    {
-      text: 'In de tuin staat een kleine boom. Sam geeft de boom water, omdat de grond erg droog is.',
-      question: 'Waarom geeft Sam de boom water?',
-      answer: 'Omdat de grond erg droog is.',
-    },
-    {
-      text: 'Noor leest een boek op de bank. Als het donker wordt, doet ze de lamp aan.',
-      question: 'Wat doet Noor als het donker wordt?',
-      answer: 'Ze doet de lamp aan.',
-    },
-    {
-      text: 'De klas gaat naar de bibliotheek. Iedereen mag een boek kiezen om mee naar huis te nemen.',
-      question: 'Waar gaat de klas naartoe?',
-      answer: 'Naar de bibliotheek.',
-    },
-  ]
-  const fallbackItem = readingItems[0] as typeof readingItems[number]
-  const items = Array.from({ length: amount }, (_, index) => {
-    const item = readingItems[index % readingItems.length] ?? fallbackItem
-
-    return {
-      question: `${index + 1}. ${item.text}\n${item.question}`,
-      answer: `${index + 1}. ${item.answer}`,
-    }
-  })
-
-  return {
-    questions: items.map((item) => item.question),
-    answers: items.map((item) => item.answer),
-  }
-}
-
-function fallbackDefaultContent(exercise: string, amount: number): WorksheetContent {
-  if (readingExercises.has(exercise)) {
-    return fallbackReadingContent(amount)
-  }
-
-  return {
-    questions: fallbackQuestions(amount),
-    answers: fallbackAnswers(amount),
-  }
 }
 
 function getCompactArithmeticQuestionAndAnswer(group: string, exercise: string, index: number) {
@@ -916,7 +863,7 @@ async function getWorksheetQuestions(
 
     const fallbackContent = layout === 'compact-arithmetic'
       ? fallbackCompactArithmeticContent(group, exercise, amount)
-      : fallbackDefaultContent(exercise, amount)
+      : createFallbackWorksheetContent(group, exercise, amount)
 
     return {
       ...fallbackContent,
@@ -926,7 +873,7 @@ async function getWorksheetQuestions(
   } catch {
     const fallbackContent = layout === 'compact-arithmetic'
       ? fallbackCompactArithmeticContent(group, exercise, amount)
-      : fallbackDefaultContent(exercise, amount)
+      : createFallbackWorksheetContent(group, exercise, amount)
 
     return {
       ...fallbackContent,
