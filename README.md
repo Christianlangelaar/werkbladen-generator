@@ -2,6 +2,8 @@
 
 Vue/Vite-app voor het maken van Nederlandse basisschoolwerkbladen en werkboekjes als PDF. De opdrachten worden via OpenAI gegenereerd; als de generator niet beschikbaar is, maakt de browser een lokale standaardversie.
 
+Broncode en automatische controles staan in [Christianlangelaar/werkbladen-generator](https://github.com/Christianlangelaar/werkbladen-generator).
+
 ## Lokaal ontwikkelen
 
 Dit project gebruikt Node `24.13.0` via nvm.
