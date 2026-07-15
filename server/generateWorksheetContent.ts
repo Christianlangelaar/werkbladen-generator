@@ -5,7 +5,13 @@ import { createFallbackWorksheetContent, type FallbackWorksheetContent } from '.
 import type { ValidatedWorksheetRequest } from './worksheetRequest'
 import { validateWorksheetPairs } from './worksheetQuality'
 
-type GenerateOutput = (prompt: string, model: string, apiKey: string) => Promise<string>
+type GeneratedOutput = {
+  outputText: string
+  inputTokens: number
+  outputTokens: number
+}
+
+type GenerateOutput = (prompt: string, model: string, apiKey: string) => Promise<string | GeneratedOutput>
 
 async function requestOpenAIOutput(prompt: string, model: string, apiKey: string) {
   const openai = new OpenAI({ apiKey })
@@ -19,7 +25,11 @@ async function requestOpenAIOutput(prompt: string, model: string, apiKey: string
       { role: 'user', content: prompt },
     ],
   })
-  return response.output_text
+  return {
+    outputText: response.output_text,
+    inputTokens: response.usage?.input_tokens ?? 0,
+    outputTokens: response.usage?.output_tokens ?? 0,
+  }
 }
 
 function createFallback(request: ValidatedWorksheetRequest, amount: number, startIndex = 0) {
@@ -54,6 +64,27 @@ export function normalizeWorksheetOutput(
   }
 }
 
+function normalizeWorksheetOutputWithQuality(outputText: string, request: ValidatedWorksheetRequest) {
+  const parsed = JSON.parse(outputText) as { questions?: unknown, answers?: unknown }
+  const { pairs, report } = validateWorksheetPairs(
+    parsed.questions,
+    parsed.answers,
+    request.amount,
+    request.layout === 'compact-arithmetic',
+  )
+  const completeAmount = pairs.length
+  const fallback = createFallback(request, request.amount - completeAmount, completeAmount)
+
+  return {
+    questions: [...pairs.map((pair, index) => `${index + 1}. ${pair.question}`), ...fallback.questions],
+    answers: [...pairs.map((pair, index) => `${index + 1}. ${pair.answer}`), ...fallback.answers],
+    quality: {
+      ...report,
+      fallbackItems: request.amount - completeAmount,
+    },
+  }
+}
+
 export async function generateWorksheetContent(
   request: ValidatedWorksheetRequest,
   apiKey: string,
@@ -67,6 +98,18 @@ export async function generateWorksheetContent(
     request.theme,
     request.difficulty,
   )
-  const outputText = await generateOutput(prompt, model, apiKey)
-  return normalizeWorksheetOutput(outputText, request)
+  const generated = await generateOutput(prompt, model, apiKey)
+  const output = typeof generated === 'string'
+    ? { outputText: generated, inputTokens: 0, outputTokens: 0 }
+    : generated
+  const content = normalizeWorksheetOutputWithQuality(output.outputText, request)
+
+  return {
+    ...content,
+    usage: {
+      inputTokens: output.inputTokens,
+      outputTokens: output.outputTokens,
+      totalTokens: output.inputTokens + output.outputTokens,
+    },
+  }
 }

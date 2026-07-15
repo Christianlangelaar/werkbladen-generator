@@ -45,9 +45,27 @@ describe('shared worksheet generation', () => {
     const content = await generateWorksheetContent(request, 'test-key', 'test-model', generateOutput)
 
     expect(generateOutput).toHaveBeenCalledWith(expect.stringContaining('contextsommen'), 'test-model', 'test-key')
-    expect(content).toEqual({
+    expect(content).toMatchObject({
       questions: ['1. Vraag 1', '2. Vraag 2', '3. Vraag 3'],
       answers: ['1. Antwoord 1', '2. Antwoord 2', '3. Antwoord 3'],
+      usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+      quality: { accepted: 3, fallbackItems: 0 },
     })
+  })
+
+  it('geeft tokengebruik en kwaliteitsfallback terug voor productiemonitoring', async () => {
+    const generateOutput = vi.fn().mockResolvedValue({
+      outputText: JSON.stringify({
+        questions: ['Vraag 1', 'Vraag 1', 'Vraag 3'],
+        answers: ['Antwoord 1', 'Antwoord 2', 'Antwoord 3'],
+      }),
+      inputTokens: 120,
+      outputTokens: 80,
+    })
+
+    const content = await generateWorksheetContent(request, 'test-key', 'test-model', generateOutput)
+
+    expect(content.usage).toEqual({ inputTokens: 120, outputTokens: 80, totalTokens: 200 })
+    expect(content.quality).toMatchObject({ accepted: 2, duplicates: 1, fallbackItems: 1 })
   })
 })

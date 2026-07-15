@@ -8,6 +8,13 @@ const headers = {
   'Content-Type': 'application/json; charset=utf-8',
 }
 
+function estimateAiCost(inputTokens: number, outputTokens: number) {
+  const inputRate = Number(process.env.OPENAI_INPUT_COST_PER_MILLION_USD)
+  const outputRate = Number(process.env.OPENAI_OUTPUT_COST_PER_MILLION_USD)
+  if (!Number.isFinite(inputRate) || !Number.isFinite(outputRate)) return undefined
+  return Number((((inputTokens * inputRate) + (outputTokens * outputRate)) / 1_000_000).toFixed(6))
+}
+
 function json(body: unknown, status = 200, extraHeaders?: HeadersInit) {
   return new Response(JSON.stringify(body), {
     status,
@@ -102,13 +109,31 @@ async function handleRequest(request: Request) {
       )
     }
 
-    const { questions, answers } = await generateWorksheetContent(
+    const { questions, answers, usage, quality } = await generateWorksheetContent(
       { group, exercise, amount, layout, theme, difficulty },
       apiKey,
       process.env.OPENAI_MODEL,
     )
 
-    return respond({ questions, answers, source: 'openai', layout }, 200, rateLimitHeaders, 'openai')
+    requestDetails = {
+      ...requestDetails,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      totalTokens: usage.totalTokens,
+      qualityFallbackItems: quality.fallbackItems,
+      estimatedCostUsd: estimateAiCost(usage.inputTokens, usage.outputTokens),
+    }
+
+    return respond(
+      { questions, answers, source: 'openai', layout },
+      200,
+      {
+        ...rateLimitHeaders,
+        'X-Worksheet-Source': 'openai',
+        'X-Quality-Fallback-Items': String(quality.fallbackItems),
+      },
+      'openai',
+    )
   } catch (error) {
     if (error instanceof RequestError) {
       return respond({ error: error.message }, error.statusCode, rateLimitHeaders, 'invalid_request')

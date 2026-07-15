@@ -40,10 +40,22 @@ Vercel is de aanbevolen host voor dit project. De Vite-frontend wordt statisch g
    - `OPENAI_MODEL` (optioneel)
    - `WORKSHEET_RATE_LIMIT` (optioneel, standaard `20` per minuut)
    - `UPSTASH_REDIS_REST_URL` en `UPSTASH_REDIS_REST_TOKEN` (aanbevolen voor een gedeelde limiter)
+   - `OPENAI_INPUT_COST_PER_MILLION_USD` en `OPENAI_OUTPUT_COST_PER_MILLION_USD` (optioneel, voor kostenramingen in logs)
 5. Voeg de variabelen toe aan Production en desgewenst Preview.
 6. Deploy en maak een testwerkblad.
 
 Gebruik `/api/health` voor een externe uptimecheck. De worksheet-API geeft iedere response een `X-Request-ID` en `Server-Timing` mee en schrijft gestructureerde JSON-logs met status, duur, oefensoort en uitkomst. Er worden geen IP-adressen of gegenereerde opdrachten gelogd.
+
+### Productiemonitoring
+
+De gestructureerde `worksheet_request`-logs bevatten geen vragen, antwoorden of IP-adressen. Ze bevatten wel `outcome`, `status`, `durationMs`, tokengebruik, het aantal vervangen kwaliteitsitems en — als de twee kostentarieven zijn ingesteld — `estimatedCostUsd`. Maak in Vercel Observability opgeslagen zoekopdrachten of grafieken voor:
+
+- foutpercentage: `outcome` is `generation_error` of `invalid_request`;
+- fallbackpercentage: alle uitkomsten behalve `openai`, plus `qualityFallbackItems > 0`;
+- latency: p50/p95 van `durationMs`;
+- AI-verbruik: som van `totalTokens` en `estimatedCostUsd`.
+
+Stel daarnaast een Vercel-uitgavenwaarschuwing en een externe uptimecheck op `/api/health` in. De actuele modeltarieven wijzigen regelmatig; vul ze daarom via omgevingsvariabelen in en leg ze niet vast in de code.
 
 `vercel.json` stelt de maximale functieduur in op 60 seconden en laat client-side routes terugvallen op `index.html`.
 
