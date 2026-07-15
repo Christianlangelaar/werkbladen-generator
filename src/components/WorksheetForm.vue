@@ -852,6 +852,7 @@ async function applyWorksheetEdits() {
             includeAnswerSheet.value,
             previousResult.source,
             previousResult.warning,
+            previousResult.requestId,
         )
         URL.revokeObjectURL(previousResult.previewUrl)
         lastGenerationResult.value = result
@@ -883,6 +884,46 @@ async function regenerateEditableItem(index: number) {
         generationError.value = error instanceof Error ? error.message : 'De opdracht kon niet opnieuw worden gemaakt.'
     } finally {
         regeneratingItemIndex.value = null
+    }
+}
+
+const feedbackCategories = [
+    { value: 'incorrect', label: 'Antwoord of opdracht klopt niet' },
+    { value: 'unclear', label: 'Opdracht is onduidelijk' },
+    { value: 'inappropriate', label: 'Inhoud is niet geschikt' },
+    { value: 'too-easy', label: 'Te makkelijk' },
+    { value: 'too-hard', label: 'Te moeilijk' },
+]
+const feedbackSelections = ref<Record<number, string>>({})
+const submittingFeedbackIndex = ref<number | null>(null)
+const feedbackStatus = ref('')
+
+async function submitItemFeedback(index: number) {
+    const requestId = lastGenerationResult.value?.requestId
+    const category = feedbackSelections.value[index]
+    if (!requestId || !category || submittingFeedbackIndex.value !== null) return
+
+    submittingFeedbackIndex.value = index
+    feedbackStatus.value = ''
+    try {
+        const response = await fetch('/api/feedback', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                requestId,
+                group: group.value,
+                exercise: exercise.value,
+                itemIndex: index + 1,
+                category,
+            }),
+        })
+        if (!response.ok) throw new Error('Feedback versturen mislukt.')
+        feedbackStatus.value = `Bedankt. Feedback voor opdracht ${index + 1} is ontvangen.`
+        delete feedbackSelections.value[index]
+    } catch {
+        feedbackStatus.value = 'De feedback kon niet worden verstuurd. Probeer het later opnieuw.'
+    } finally {
+        submittingFeedbackIndex.value = null
     }
 }
 
@@ -1615,7 +1656,51 @@ async function generatePdf() {
                                 Verwijder opdracht
                             </button>
                         </div>
+
+                        <div
+                            v-if="lastGenerationResult?.source === 'openai' && lastGenerationResult.requestId"
+                            class="mt-3 flex flex-col gap-2 border-t border-slate-100 pt-3 sm:flex-row"
+                        >
+                            <label
+                                :for="`feedback-${index}`"
+                                class="sr-only"
+                            >
+                                Probleem met opdracht {{ index + 1 }}
+                            </label>
+                            <select
+                                :id="`feedback-${index}`"
+                                v-model="feedbackSelections[index]"
+                                class="min-w-0 flex-1 rounded-md border border-slate-300 px-3 py-2 text-xs text-slate-800"
+                            >
+                                <option value="">
+                                    Meld een probleem
+                                </option>
+                                <option
+                                    v-for="category in feedbackCategories"
+                                    :key="category.value"
+                                    :value="category.value"
+                                >
+                                    {{ category.label }}
+                                </option>
+                            </select>
+                            <button
+                                type="button"
+                                class="rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                                :disabled="!feedbackSelections[index] || submittingFeedbackIndex !== null"
+                                @click="submitItemFeedback(index)"
+                            >
+                                {{ submittingFeedbackIndex === index ? 'Versturen...' : 'Verstuur feedback' }}
+                            </button>
+                        </div>
                     </fieldset>
+
+                    <p
+                        v-if="feedbackStatus"
+                        class="text-sm text-slate-700"
+                        role="status"
+                    >
+                        {{ feedbackStatus }}
+                    </p>
 
                     <button
                         type="button"

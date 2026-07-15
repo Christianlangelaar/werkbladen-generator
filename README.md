@@ -76,6 +76,8 @@ Gebruik `/api/health` voor een externe uptimecheck. De worksheet-API geeft ieder
 
 De gestructureerde `worksheet_request`-logs bevatten geen vragen, antwoorden of IP-adressen. Ze bevatten wel `outcome`, `status`, `durationMs`, tokengebruik, het aantal vervangen kwaliteitsitems en — als de twee kostentarieven zijn ingesteld — `estimatedCostUsd`. Maak in Vercel Observability opgeslagen zoekopdrachten of grafieken voor:
 
+Feedback op een losse AI-opdracht wordt als `worksheet_feedback` gelogd met alleen request-ID, groep, oefensoort, opdrachtnummer en een vaste probleemcategorie. De vraag, het antwoord, vrije tekst en het IP-adres worden niet gelogd.
+
 - foutpercentage: `outcome` is `generation_error` of `invalid_request`;
 - fallbackpercentage: alle uitkomsten behalve `openai`, plus `qualityFallbackItems > 0`;
 - latency: p50/p95 van `durationMs`;

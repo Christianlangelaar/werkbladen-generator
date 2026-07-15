@@ -1,5 +1,5 @@
 import { flushPromises, mount } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import WorksheetForm from './WorksheetForm.vue'
 import {
   createEditedWorksheetPdf,
@@ -29,6 +29,7 @@ describe('WorksheetForm', () => {
       fileName: 'werkblad.pdf',
       pageCount: 1,
       editableItems: [{ question: 'Wat is 2 + 2?', answer: '4' }],
+      requestId: '76cded37-9793-4c5d-a7eb-df681a30385d',
     })
     mockedGenerateWorkbookPdf.mockResolvedValue({ source: 'openai', previewUrl: 'blob:workbook', fileName: 'werkboekje.pdf', pageCount: 5 })
     mockedCreateEditedWorksheetPdf.mockResolvedValue({
@@ -39,6 +40,10 @@ describe('WorksheetForm', () => {
       editableItems: [{ question: 'Wat is 3 + 3?', answer: '6' }],
     })
     mockedRegenerateWorksheetItem.mockResolvedValue({ question: 'Wat is 3 + 3?', answer: '6' })
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
   })
 
   it('koppelt alle zichtbare selectvelden aan hun labels', () => {
@@ -215,10 +220,35 @@ describe('WorksheetForm', () => {
       false,
       'openai',
       undefined,
+      '76cded37-9793-4c5d-a7eb-df681a30385d',
     )
     expect(wrapper.get('iframe').attributes('src')).toBe('blob:edited')
     expect(wrapper.get('a[download]').attributes('href')).toBe('blob:edited')
     expect(wrapper.text()).not.toContain('wijzigingen die nog niet in de PDF staan')
+  })
+
+  it('verstuurt alleen vaste feedbackmetadata voor een AI-opdracht', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const wrapper = mount(WorksheetForm)
+
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    await wrapper.get('#feedback-0').setValue('incorrect')
+    await wrapper.findAll('button').find((button) => button.text() === 'Verstuur feedback')?.trigger('click')
+    await flushPromises()
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/feedback', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({
+        requestId: '76cded37-9793-4c5d-a7eb-df681a30385d',
+        group: '4',
+        exercise: 'contextsommen',
+        itemIndex: 1,
+        category: 'incorrect',
+      }),
+    }))
+    expect(wrapper.text()).toContain('Feedback voor opdracht 1 is ontvangen')
   })
 
   it('kan één opdracht opnieuw genereren', async () => {

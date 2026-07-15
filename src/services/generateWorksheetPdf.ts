@@ -18,6 +18,7 @@ type WorksheetContent = {
 type GeneratedWorksheetContent = WorksheetContent & {
   source: 'openai' | 'fallback'
   warning?: string
+  requestId?: string
 }
 
 export type PdfGenerationResult = {
@@ -27,6 +28,7 @@ export type PdfGenerationResult = {
   fileName: string
   pageCount: number
   editableItems?: EditableWorksheetItem[]
+  requestId?: string
 }
 
 export type EditableWorksheetItem = {
@@ -74,6 +76,7 @@ function sliceAndRenumberContent(
     answers: renumber(content.answers),
     source: content.source,
     warning: content.warning,
+    requestId: content.requestId,
   }
 }
 
@@ -83,9 +86,10 @@ function createPdfResult(
   source: PdfGenerationResult['source'],
   warning?: string,
   editableItems?: EditableWorksheetItem[],
+  requestId?: string,
 ): PdfGenerationResult {
   const previewUrl = URL.createObjectURL(doc.output('blob'))
-  return { source, warning, previewUrl, fileName, pageCount: doc.getNumberOfPages(), editableItems }
+  return { source, warning, previewUrl, fileName, pageCount: doc.getNumberOfPages(), editableItems, requestId }
 }
 
 function withoutNumber(value: string) {
@@ -869,6 +873,7 @@ async function getWorksheetQuestions(
     }
 
     const data = (await response.json()) as WorksheetResponse
+    const requestId = response.headers.get('X-Request-ID') ?? undefined
 
     if (data.questions.length > 0) {
       const source = data.source === 'fallback' ? 'fallback' : 'openai'
@@ -877,6 +882,7 @@ async function getWorksheetQuestions(
         questions: data.questions,
         answers: data.answers && data.answers.length > 0 ? data.answers : fallbackAnswers(data.questions.length),
         source,
+        requestId,
         warning: source === 'fallback'
           ? 'De AI-generator was niet beschikbaar. Er is een standaardversie van het werkblad gemaakt.'
           : undefined,
@@ -1103,6 +1109,7 @@ export async function generateWorksheetPdf(
       content.source,
       content.warning,
       toEditableItems(content),
+      content.requestId,
     )
   }
 
@@ -1124,6 +1131,7 @@ export async function generateWorksheetPdf(
     content.source,
     content.warning,
     toEditableItems(content),
+    content.requestId,
   )
 }
 
@@ -1135,6 +1143,7 @@ export async function createEditedWorksheetPdf(
   includeAnswerSheet = false,
   source: PdfGenerationResult['source'] = 'local',
   warning?: string,
+  requestId?: string,
 ): Promise<PdfGenerationResult> {
   if (items.length === 0) {
     throw new Error('Behoud minimaal één opdracht.')
@@ -1171,6 +1180,7 @@ export async function createEditedWorksheetPdf(
     source,
     warning,
     items.map((item) => ({ ...item })),
+    requestId,
   )
 }
 
