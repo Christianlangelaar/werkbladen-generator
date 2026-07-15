@@ -15,6 +15,8 @@ npm run dev
 
 Vul in `.env.local` minimaal `OPENAI_API_KEY` in. `OPENAI_MODEL` is optioneel en staat standaard op `gpt-5.5`. Met `WORKSHEET_RATE_LIMIT` kun je de standaardlimiet van 20 AI-aanvragen per IP per minuut aanpassen.
 
+OpenAI-aanvragen hebben een time-out van 45 seconden, maximaal één retry en standaard maximaal 4.000 outputtokens. Pas die laatste grens alleen indien nodig aan met `OPENAI_MAX_OUTPUT_TOKENS` (toegestaan: 256–8.000).
+
 ## Controles
 
 ```sh
@@ -38,6 +40,7 @@ Vercel is de aanbevolen host voor dit project. De Vite-frontend wordt statisch g
 4. Voeg bij Project Settings → Environment Variables toe:
    - `OPENAI_API_KEY`
    - `OPENAI_MODEL` (optioneel)
+   - `OPENAI_MAX_OUTPUT_TOKENS` (optioneel, standaard `4000`)
    - `WORKSHEET_RATE_LIMIT` (optioneel, standaard `20` per minuut)
    - `UPSTASH_REDIS_REST_URL` en `UPSTASH_REDIS_REST_TOKEN` (aanbevolen voor een gedeelde limiter)
    - `OPENAI_INPUT_COST_PER_MILLION_USD` en `OPENAI_OUTPUT_COST_PER_MILLION_USD` (optioneel, voor kostenramingen in logs)

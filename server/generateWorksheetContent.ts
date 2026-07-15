@@ -13,10 +13,17 @@ type GeneratedOutput = {
 
 type GenerateOutput = (prompt: string, model: string, apiKey: string) => Promise<string | GeneratedOutput>
 
+export function getOpenAiMaxOutputTokens(value = process.env.OPENAI_MAX_OUTPUT_TOKENS) {
+  const parsed = Number(value)
+  if (!Number.isInteger(parsed) || parsed < 256 || parsed > 8_000) return 4_000
+  return parsed
+}
+
 async function requestOpenAIOutput(prompt: string, model: string, apiKey: string) {
-  const openai = new OpenAI({ apiKey })
+  const openai = new OpenAI({ apiKey, timeout: 45_000, maxRetries: 1 })
   const response = await openai.responses.create({
     model,
+    max_output_tokens: getOpenAiMaxOutputTokens(),
     input: [
       {
         role: 'system',

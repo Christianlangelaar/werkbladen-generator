@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
-import { generateWorksheetContent, normalizeWorksheetOutput } from './generateWorksheetContent'
+import {
+  generateWorksheetContent,
+  getOpenAiMaxOutputTokens,
+  normalizeWorksheetOutput,
+} from './generateWorksheetContent'
 import type { ValidatedWorksheetRequest } from './worksheetRequest'
 
 const request: ValidatedWorksheetRequest = {
@@ -10,6 +14,14 @@ const request: ValidatedWorksheetRequest = {
 }
 
 describe('shared worksheet generation', () => {
+  it('begrenst het configureerbare maximale aantal outputtokens', () => {
+    expect(getOpenAiMaxOutputTokens()).toBe(4_000)
+    expect(getOpenAiMaxOutputTokens('2500')).toBe(2_500)
+    expect(getOpenAiMaxOutputTokens('255')).toBe(4_000)
+    expect(getOpenAiMaxOutputTokens('8001')).toBe(4_000)
+    expect(getOpenAiMaxOutputTokens('ongeldig')).toBe(4_000)
+  })
+
   it('normaliseert nummering en vult onvolledige modeloutput aan', () => {
     const content = normalizeWorksheetOutput(JSON.stringify({
       questions: ['9. Eerste vraag?'],
