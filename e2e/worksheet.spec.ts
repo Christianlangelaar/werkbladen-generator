@@ -145,16 +145,17 @@ test('voldoet in beide modi aan de geautomatiseerde toegankelijkheidscontrole', 
   expect(workbookResults.violations).toEqual([])
 })
 
-test('kan de hoofdflow volledig met het toetsenbord bedienen', async ({ page }) => {
-  await page.keyboard.press('Tab')
+test('kan de hoofdflow volledig met het toetsenbord bedienen', async ({ page, browserName }) => {
+  const tabKey = browserName === 'webkit' ? 'Alt+Tab' : 'Tab'
+  await page.keyboard.press(tabKey)
   await expect(page.locator('summary')).toBeFocused()
-  await page.keyboard.press('Tab')
+  await page.keyboard.press(tabKey)
   await expect(page.getByRole('button', { name: 'Werkblad', exact: true })).toBeFocused()
-  await page.keyboard.press('Tab')
+  await page.keyboard.press(tabKey)
   await expect(page.getByRole('button', { name: 'Werkboekje', exact: true })).toBeFocused()
   await page.keyboard.press('Enter')
   await expect(page.getByRole('button', { name: 'Werkboekje', exact: true })).toHaveAttribute('aria-pressed', 'true')
-  await page.keyboard.press('Tab')
+  await page.keyboard.press(tabKey)
   await expect(page.getByLabel('Groep', { exact: true })).toBeFocused()
 })
 
