@@ -17,7 +17,7 @@ async function fetchWithTimeout(path) {
   }
 }
 
-const healthResponse = await fetchWithTimeout('/api/health')
+const healthResponse = await fetchWithTimeout('/api/health?readiness=1')
 if (!healthResponse.ok || (await healthResponse.json()).status !== 'ok') {
   throw new Error(`Healthcheck mislukt met status ${healthResponse.status}.`)
 }

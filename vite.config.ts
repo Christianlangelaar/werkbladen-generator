@@ -72,10 +72,30 @@ export default defineConfig({
             return
           }
 
-          sendJson(res, 200, { status: 'ok' })
+          const readinessRequested = new URL(req.url ?? '/', 'http://localhost').searchParams.get('readiness') === '1'
+          const openaiConfigured = Boolean(process.env.OPENAI_API_KEY)
+          const distributedRateLimitConfigured = Boolean(
+            process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN,
+          )
+          sendJson(res, readinessRequested && !openaiConfigured ? 503 : 200, {
+            status: readinessRequested && !openaiConfigured ? 'degraded' : 'ok',
+            checks: { openaiConfigured, distributedRateLimitConfigured },
+          })
+        })
+
+        server.middlewares.use('/api/feedback', (req, res) => {
+          res.setHeader('Cache-Control', 'no-store')
+          if (req.method !== 'POST') {
+            res.setHeader('Allow', 'POST')
+            sendJson(res, 405, { error: 'Alleen POST-verzoeken zijn toegestaan.' })
+            return
+          }
+          res.statusCode = 204
+          res.end()
         })
 
         server.middlewares.use('/api/worksheet', async (req, res) => {
+          res.setHeader('X-Request-ID', crypto.randomUUID())
           if (req.method !== 'POST') {
             res.setHeader('Allow', 'POST')
             sendJson(res, 405, { error: 'Alleen POST-verzoeken zijn toegestaan.' })

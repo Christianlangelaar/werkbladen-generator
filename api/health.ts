@@ -11,7 +11,20 @@ function handleRequest(request: Request) {
     })
   }
 
-  return new Response(JSON.stringify({ status: 'ok' }), { status: 200, headers })
+  const readinessRequested = new URL(request.url).searchParams.get('readiness') === '1'
+  const openaiConfigured = Boolean(process.env.OPENAI_API_KEY)
+  const distributedRateLimitConfigured = Boolean(
+    process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN,
+  )
+  const ready = openaiConfigured
+
+  return new Response(JSON.stringify({
+    status: readinessRequested && !ready ? 'degraded' : 'ok',
+    checks: { openaiConfigured, distributedRateLimitConfigured },
+  }), {
+    status: readinessRequested && !ready ? 503 : 200,
+    headers,
+  })
 }
 
 export default {

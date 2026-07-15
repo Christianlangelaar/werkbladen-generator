@@ -58,7 +58,7 @@ Controleer na iedere productie-uitrol de publieke pagina, healthcheck, privacyte
 npm run smoke -- https://jouw-domein.nl
 ```
 
-De workflow `Production smoke test` voert deze controle iedere 30 minuten uit tegen de productie-URL en kan ook handmatig tegen een andere publieke URL worden gestart. Iedere aanvraag heeft een time-out van 10 seconden. Schakel in GitHub bij Settings → Notifications meldingen voor mislukte Actions-workflows in, zodat een storing niet alleen in het workflowoverzicht zichtbaar is.
+De workflow `Production smoke test` voert deze controle iedere 30 minuten uit tegen de productie-URL en kan ook handmatig tegen een andere publieke URL worden gestart. Iedere aanvraag heeft een time-out van 10 seconden. De readiness-check verifieert daarnaast dat OpenAI is geconfigureerd. Bij een mislukte productiecontrole opent GitHub automatisch één incidentissue; zodra de controle herstelt, wordt dit issue met een herstelmelding gesloten. De wekelijkse inhoudsevaluatie gebruikt hetzelfde mechanisme voor kwaliteitsincidenten.
 
 ## Inhoudsevaluatie
 

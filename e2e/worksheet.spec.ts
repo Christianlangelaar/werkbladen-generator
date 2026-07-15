@@ -12,7 +12,10 @@ test('healthcheck is beschikbaar voor monitoring', async ({ request }) => {
 
   expect(response.status()).toBe(200)
   expect(response.headers()['cache-control']).toBe('no-store')
-  await expect(response.json()).resolves.toEqual({ status: 'ok' })
+  await expect(response.json()).resolves.toMatchObject({
+    status: 'ok',
+    checks: { openaiConfigured: false },
+  })
 })
 
 test('legt privacy, tijdelijke IP-verwerking en externe verwerkers uit', async ({ page }) => {

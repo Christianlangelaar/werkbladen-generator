@@ -7,7 +7,17 @@ describe('health endpoint', () => {
 
     expect(response.status).toBe(200)
     expect(response.headers.get('cache-control')).toBe('no-store')
-    await expect(response.json()).resolves.toEqual({ status: 'ok' })
+    await expect(response.json()).resolves.toEqual({
+      status: 'ok',
+      checks: { openaiConfigured: false, distributedRateLimitConfigured: false },
+    })
+  })
+
+  it('meldt een ontbrekende AI-configuratie in readiness-modus', async () => {
+    const response = await handler.fetch(new Request('https://example.test/api/health?readiness=1'))
+
+    expect(response.status).toBe(503)
+    await expect(response.json()).resolves.toMatchObject({ status: 'degraded' })
   })
 
   it('weigert andere methodes', async () => {
