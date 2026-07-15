@@ -26,6 +26,8 @@ npm run build
 
 De Playwright-tests starten een geïsoleerde lokale server zonder OpenAI-sleutel en veroorzaken dus geen API-kosten.
 
+GitHub Actions voert bij iedere pull request lint, unit/API/PDF-tests, de productiebuild en de browsertests uit. Merges naar `master` worden opnieuw gecontroleerd.
+
 ## Deployen naar Vercel
 
 Vercel is de aanbevolen host voor dit project. De Vite-frontend wordt statisch gepubliceerd en [`api/worksheet.ts`](./api/worksheet.ts) wordt automatisch als Node.js Function uitgevoerd. De OpenAI-sleutel komt daardoor nooit in de browser terecht.
@@ -40,6 +42,8 @@ Vercel is de aanbevolen host voor dit project. De Vite-frontend wordt statisch g
    - `UPSTASH_REDIS_REST_URL` en `UPSTASH_REDIS_REST_TOKEN` (aanbevolen voor een gedeelde limiter)
 5. Voeg de variabelen toe aan Production en desgewenst Preview.
 6. Deploy en maak een testwerkblad.
+
+Gebruik `/api/health` voor een externe uptimecheck. De worksheet-API geeft iedere response een `X-Request-ID` en `Server-Timing` mee en schrijft gestructureerde JSON-logs met status, duur, oefensoort en uitkomst. Er worden geen IP-adressen of gegenereerde opdrachten gelogd.
 
 `vercel.json` stelt de maximale functieduur in op 60 seconden en laat client-side routes terugvallen op `index.html`.
 

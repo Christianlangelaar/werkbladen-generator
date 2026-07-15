@@ -57,6 +57,17 @@ export default defineConfig({
     {
       name: 'worksheet-api',
       configureServer(server) {
+        server.middlewares.use('/api/health', (req, res) => {
+          res.setHeader('Cache-Control', 'no-store')
+          if (req.method !== 'GET') {
+            res.setHeader('Allow', 'GET')
+            sendJson(res, 405, { error: 'Alleen GET-verzoeken zijn toegestaan.' })
+            return
+          }
+
+          sendJson(res, 200, { status: 'ok' })
+        })
+
         server.middlewares.use('/api/worksheet', async (req, res) => {
           if (req.method !== 'POST') {
             res.setHeader('Allow', 'POST')

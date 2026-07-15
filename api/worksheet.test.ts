@@ -58,6 +58,8 @@ describe('production worksheet endpoint', () => {
     }))
 
     expect(response.status).toBe(503)
+    expect(response.headers.get('x-request-id')).toMatch(/^[0-9a-f-]{36}$/)
+    expect(response.headers.get('server-timing')).toMatch(/^worksheet;dur=\d+$/)
     await expect(response.json()).resolves.toEqual({
       error: 'De werkbladgenerator is tijdelijk niet beschikbaar.',
     })

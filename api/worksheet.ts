@@ -38,8 +38,37 @@ async function parseRequestBody(request: Request) {
 }
 
 async function handleRequest(request: Request) {
+  const requestId = crypto.randomUUID()
+  const startedAt = Date.now()
+  let requestDetails: Record<string, unknown> = {}
+  const respond = (
+    body: unknown,
+    status = 200,
+    extraHeaders?: HeadersInit,
+    outcome?: string,
+  ) => {
+    const durationMs = Date.now() - startedAt
+
+    if (process.env.NODE_ENV !== 'test') {
+      console.info(JSON.stringify({
+        event: 'worksheet_request',
+        requestId,
+        status,
+        durationMs,
+        outcome,
+        ...requestDetails,
+      }))
+    }
+
+    return json(body, status, {
+      ...extraHeaders,
+      'Server-Timing': `worksheet;dur=${durationMs}`,
+      'X-Request-ID': requestId,
+    })
+  }
+
   if (request.method !== 'POST') {
-    return json({ error: 'Alleen POST-verzoeken zijn toegestaan.' }, 405, { Allow: 'POST' })
+    return respond({ error: 'Alleen POST-verzoeken zijn toegestaan.' }, 405, { Allow: 'POST' }, 'method_not_allowed')
   }
 
   const clientIdentifier = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
@@ -49,10 +78,11 @@ async function handleRequest(request: Request) {
   const rateLimitHeaders = getRateLimitHeaders(rateLimit)
 
   if (!rateLimit.allowed) {
-    return json(
+    return respond(
       { error: 'Je hebt te veel werkbladen kort na elkaar aangevraagd. Probeer het over een minuut opnieuw.' },
       429,
       { ...rateLimitHeaders, 'Retry-After': String(rateLimit.retryAfterSeconds) },
+      'rate_limited',
     )
   }
 
@@ -60,10 +90,16 @@ async function handleRequest(request: Request) {
     const { group, exercise, amount, layout, theme, difficulty } = validateWorksheetRequest(
       await parseRequestBody(request),
     )
+    requestDetails = { group, exercise, amount, layout }
     const apiKey = process.env.OPENAI_API_KEY
 
     if (!apiKey) {
-      return json({ error: 'De werkbladgenerator is tijdelijk niet beschikbaar.' }, 503, rateLimitHeaders)
+      return respond(
+        { error: 'De werkbladgenerator is tijdelijk niet beschikbaar.' },
+        503,
+        rateLimitHeaders,
+        'openai_unavailable',
+      )
     }
 
     const { questions, answers } = await generateWorksheetContent(
@@ -72,17 +108,18 @@ async function handleRequest(request: Request) {
       process.env.OPENAI_MODEL,
     )
 
-    return json({ questions, answers, source: 'openai', layout }, 200, rateLimitHeaders)
+    return respond({ questions, answers, source: 'openai', layout }, 200, rateLimitHeaders, 'openai')
   } catch (error) {
     if (error instanceof RequestError) {
-      return json({ error: error.message }, error.statusCode, rateLimitHeaders)
+      return respond({ error: error.message }, error.statusCode, rateLimitHeaders, 'invalid_request')
     }
 
     console.error('Werkblad genereren mislukt.', error)
-    return json(
+    return respond(
       { error: 'Het werkblad kon niet worden gegenereerd. Probeer het later opnieuw.' },
       500,
       rateLimitHeaders,
+      'generation_error',
     )
   }
 }

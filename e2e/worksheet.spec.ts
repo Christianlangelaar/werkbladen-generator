@@ -6,6 +6,14 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/')
 })
 
+test('healthcheck is beschikbaar voor monitoring', async ({ request }) => {
+  const response = await request.get('/api/health')
+
+  expect(response.status()).toBe(200)
+  expect(response.headers()['cache-control']).toBe('no-store')
+  await expect(response.json()).resolves.toEqual({ status: 'ok' })
+})
+
 test('maakt een werkblad en meldt gebruikte fallbackcontent', async ({ page }) => {
   await page.getByLabel('Groep', { exact: true }).selectOption('4')
   await page.getByLabel('Oefensoort', { exact: true }).selectOption('contextsommen')
