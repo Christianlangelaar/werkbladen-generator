@@ -38,6 +38,14 @@ const summaryQuestionsPerPage = 4
 const storyQuestionsPerPage = 10
 const standardQuestionsPerPage = 18
 const countingQuestionsPerPage = 6
+const earlyLearningExercises = new Set([
+  'cijfers-overtrekken',
+  'lijnen-overtrekken',
+  'raamfiguren',
+  'schaduwen',
+  'spiegelen',
+  'woorden-overtrekken',
+])
 const compactArithmeticExercises = new Set([
   'optellen',
   'aftrekken',
@@ -73,7 +81,14 @@ function isStoryExercise(exercise: string) {
 }
 
 function getDefaultQuestionsPerPage(exercise: string) {
-  if (exercise === 'tellen') {
+  if (exercise === 'raamfiguren') return 3
+  if (exercise === 'spiegelen') return 2
+  if (exercise === 'schaduwen' || exercise === 'woorden-overtrekken') return 6
+  if (exercise === 'cijfers-overtrekken') return 5
+  if (exercise === 'lijnen-overtrekken') {
+    return 5
+  }
+  if (exercise.startsWith('tellen-')) {
     return countingQuestionsPerPage
   }
   if (readingExercises.has(exercise)) {
@@ -634,33 +649,262 @@ function drawDie(doc: jsPDF, x: number, y: number, value: number) {
   }
 }
 
+function drawPictureIcon(doc: jsPDF, x: number, y: number, index: number) {
+  doc.setDrawColor(15, 23, 42)
+  doc.setFillColor(15, 23, 42)
+  if (index % 3 === 0) {
+    doc.circle(x, y, 3.2, 'S')
+  } else if (index % 3 === 1) {
+    doc.rect(x - 3.2, y - 3.2, 6.4, 6.4, 'S')
+  } else {
+    doc.triangle(x, y - 4, x - 4, y + 3, x + 4, y + 3, 'S')
+  }
+}
+
+function drawTracingPattern(doc: jsPDF, pattern: number, y: number) {
+  doc.setDrawColor(30, 41, 59)
+  doc.setLineWidth(0.7)
+  doc.setLineDashPattern([2.2, 2.2], 0)
+  const points: [number, number][] = []
+  for (let step = 0; step <= 34; step += 1) {
+    const x = 25 + (step * 4.7)
+    const phase = step / 34
+    let offset = 0
+    if (pattern === 0) offset = Math.sin(phase * Math.PI * 6) * 11
+    if (pattern === 1) offset = (step % 4 < 2 ? -11 : 11)
+    if (pattern === 2) offset = Math.abs(Math.sin(phase * Math.PI * 5)) * -18
+    if (pattern === 3) offset = Math.cos(phase * Math.PI * 5) * 13
+    if (pattern === 4) offset = Math.sin(phase * Math.PI * 3) * 16
+    points.push([x, y + offset])
+  }
+  for (let index = 1; index < points.length; index += 1) {
+    const previous = points[index - 1] as [number, number]
+    const current = points[index] as [number, number]
+    doc.line(previous[0], previous[1], current[0], current[1])
+  }
+  doc.setLineDashPattern([], 0)
+}
+
+function drawDotGrid(doc: jsPDF, x: number, y: number, size: number) {
+  doc.setFillColor(249, 115, 22)
+  for (let row = 0; row < 5; row += 1) {
+    for (let column = 0; column < 5; column += 1) doc.circle(x + column * size, y + row * size, 0.75, 'F')
+  }
+}
+
+function drawGridFigure(doc: jsPDF, x: number, y: number, size: number, variant: number) {
+  const patterns = [
+    [[0, 4], [2, 1], [4, 4], [3, 4], [3, 3], [1, 3], [1, 4], [0, 4]],
+    [[0, 2], [1, 0], [2, 2], [3, 0], [4, 2], [3, 4], [2, 2], [1, 4], [0, 2]],
+    [[0, 1], [1, 0], [4, 0], [4, 4], [1, 4], [0, 3], [0, 1], [2, 3], [4, 3]],
+  ]
+  const points = patterns[variant % patterns.length] ?? patterns[0] ?? []
+  doc.setDrawColor(5, 150, 105)
+  doc.setLineWidth(0.75)
+  for (let index = 1; index < points.length; index += 1) {
+    const from = points[index - 1]
+    const to = points[index]
+    if (from && to) {
+      const [fromColumn = 0, fromRow = 0] = from
+      const [toColumn = 0, toRow = 0] = to
+      doc.line(x + fromColumn * size, y + fromRow * size, x + toColumn * size, y + toRow * size)
+    }
+  }
+}
+
+function drawSimpleShape(doc: jsPDF, x: number, y: number, variant: number, filled = false) {
+  const style = filled ? 'F' : 'S'
+  doc.setDrawColor(15, 23, 42)
+  doc.setFillColor(15, 23, 42)
+  doc.setLineWidth(1)
+  if (variant === 0) {
+    doc.circle(x, y, 9, style)
+    if (!filled) {
+      doc.circle(x - 3, y - 1, 1, 'S')
+      doc.circle(x + 3, y - 1, 1, 'S')
+    }
+  } else if (variant === 1) {
+    doc.triangle(x, y - 11, x - 11, y + 9, x + 11, y + 9, style)
+  } else if (variant === 2) {
+    doc.roundedRect(x - 10, y - 8, 20, 16, 4, 4, style)
+    doc.circle(x - 6, y + 10, 3, style)
+    doc.circle(x + 6, y + 10, 3, style)
+  } else if (variant === 3) {
+    doc.ellipse(x, y, 12, 7, style)
+    doc.triangle(x - 12, y, x - 18, y - 6, x - 18, y + 6, style)
+  } else if (variant === 4) {
+    doc.rect(x - 9, y - 9, 18, 18, style)
+    doc.triangle(x - 9, y - 9, x - 4, y - 15, x, y - 9, style)
+    doc.triangle(x, y - 9, x + 4, y - 15, x + 9, y - 9, style)
+  } else {
+    doc.triangle(x, y - 12, x - 12, y, x, y + 12, style)
+    doc.triangle(x, y - 12, x + 12, y, x, y + 12, style)
+  }
+}
+
+function drawLeftSemicircle(doc: jsPDF, centerX: number, centerY: number, radius: number) {
+  let previousX = centerX
+  let previousY = centerY - radius
+  for (let step = 1; step <= 18; step += 1) {
+    const angle = (Math.PI / 2) + (step / 18) * Math.PI
+    const x = centerX + Math.cos(angle) * radius
+    const y = centerY - Math.sin(angle) * radius
+    doc.line(previousX, previousY, x, y)
+    previousX = x
+    previousY = y
+  }
+}
+
+function drawHalfPicture(doc: jsPDF, centerX: number, centerY: number, variant: number) {
+  doc.setDrawColor(15, 23, 42)
+  doc.setLineWidth(1.3)
+  doc.setLineDashPattern([1.5, 1.5], 0)
+  doc.line(centerX, centerY - 42, centerX, centerY + 42)
+  doc.setLineDashPattern([], 0)
+  if (variant % 2 === 0) {
+    drawLeftSemicircle(doc, centerX, centerY, 25)
+    doc.line(centerX - 25, centerY, centerX - 38, centerY - 10)
+    doc.line(centerX - 25, centerY, centerX - 38, centerY + 10)
+    doc.circle(centerX - 9, centerY - 7, 2, 'F')
+    doc.line(centerX - 11, centerY + 9, centerX, centerY + 13)
+  } else {
+    doc.rect(centerX - 25, centerY - 22, 25, 44, 'S')
+    doc.triangle(centerX - 30, centerY - 22, centerX, centerY - 42, centerX, centerY - 22, 'S')
+    doc.rect(centerX - 12, centerY + 4, 12, 18, 'S')
+  }
+}
+
+function addEarlyLearningPages(doc: jsPDF, group: string, exercise: string, amount: number, startOnNewPage = false) {
+  const perPage = exercise === 'cijfers-overtrekken' && Number(group) >= 2
+    ? 10
+    : getDefaultQuestionsPerPage(exercise)
+  const pageCount = Math.ceil(amount / perPage)
+  const words = ['beer', 'fiets', 'vis', 'maan', 'roos', 'boom', 'kat', 'zon']
+  for (let page = 0; page < pageCount; page += 1) {
+    if (startOnNewPage || page > 0) doc.addPage()
+    addHeader(doc, group, exercise)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(11)
+    doc.setTextColor(71, 85, 105)
+    const instructions: Record<string, string> = {
+      'cijfers-overtrekken': 'Trek de cijfers over.',
+      'lijnen-overtrekken': 'Trek de lijnen over.',
+      raamfiguren: 'Teken de figuur na op het lege stippenraam.',
+      schaduwen: 'Trek een lijn van elke vorm naar de juiste schaduw.',
+      spiegelen: 'Teken de andere helft van de figuur.',
+      'woorden-overtrekken': 'Trek de woorden over en schrijf ze daarna zelf.',
+    }
+    doc.text(instructions[exercise] ?? '', pageMargin, 44)
+    const remaining = Math.min(perPage, amount - page * perPage)
+    for (let row = 0; row < remaining; row += 1) {
+      const absoluteIndex = page * perPage + row
+      if (exercise === 'lijnen-overtrekken') drawTracingPattern(doc, row, 64 + row * 42)
+      if (exercise === 'cijfers-overtrekken') {
+        const number = (absoluteIndex % (Number(group) === 1 ? 5 : 10)) + 1
+        const rowHeight = perPage === 10 ? 21 : 42
+        const y = 61 + row * rowHeight
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(perPage === 10 ? 22 : 29); doc.setTextColor(15, 23, 42); doc.text(String(number), 25, y)
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(perPage === 10 ? 21 : 28); doc.setTextColor(156, 163, 175)
+        for (let repeat = 0; repeat < 5; repeat += 1) doc.text(String(number), 55 + repeat * 25, y)
+        doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.3); doc.line(48, y + 2, 187, y + 2)
+      }
+      if (exercise === 'woorden-overtrekken') {
+        const word = words[absoluteIndex % words.length] ?? 'boom'; const y = 64 + row * 35
+        doc.setFontSize(27); doc.setTextColor(156, 163, 175); doc.text(word, 28, y)
+        doc.setDrawColor(203, 213, 225); doc.setLineWidth(0.35)
+        doc.line(105, y + 2, 185, y + 2); doc.setLineDashPattern([1, 1.5], 0); doc.line(105, y - 8, 185, y - 8); doc.setLineDashPattern([], 0)
+      }
+      if (exercise === 'raamfiguren') {
+        const y = 64 + row * 68; drawDotGrid(doc, 28, y, 9); drawGridFigure(doc, 28, y, 9, absoluteIndex); drawDotGrid(doc, 125, y, 9)
+      }
+      if (exercise === 'spiegelen') drawHalfPicture(doc, 105, 98 + row * 105, absoluteIndex)
+      if (exercise === 'schaduwen') {
+        const shadowOrder = [2, 5, 0, 4, 1, 3]
+        const y = 65 + row * 33; drawSimpleShape(doc, 40, y, row); drawSimpleShape(doc, 165, y, shadowOrder[row] ?? row, true)
+        doc.setFillColor(100, 116, 139); doc.circle(62, y, 1.5, 'F'); doc.circle(143, y, 1.5, 'F')
+      }
+    }
+    startOnNewPage = false
+  }
+}
+
 function addCountingPages(doc: jsPDF, group: string, exercise: string, amount: number) {
-  const pageCount = Math.ceil(amount / countingQuestionsPerPage)
-  const rowYs = [53, 88, 123, 158, 193, 228]
+  const isNumberMode = exercise === 'tellen-cijfers'
+  const isPictureMode = exercise === 'tellen-vormen'
+  const isTracingMode = exercise === 'lijnen-overtrekken'
+  const maxValue = Number(group) <= 1 ? 5 : 10
+  const circleCount = maxValue
+  const rowsPerPage = isNumberMode ? 10 : isPictureMode ? 8 : isTracingMode ? 5 : countingQuestionsPerPage
+  const pageCount = Math.ceil(amount / rowsPerPage)
+  const rowYs = isNumberMode || isPictureMode || isTracingMode ? Array.from({ length: rowsPerPage }, (_, index) => 58 + (index * (isTracingMode ? 42 : isPictureMode ? 26 : 22))) : [53, 88, 123, 158, 193, 228]
 
   for (let pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
     if (pageIndex > 0) doc.addPage()
     addHeader(doc, group, exercise)
 
-    const values = [3, 1, 6, 4, 5, 2]
-    const remaining = Math.min(countingQuestionsPerPage, amount - (pageIndex * countingQuestionsPerPage))
-    for (let row = 0; row < remaining; row += 1) {
-      const y = rowYs[row] ?? 53
-      const value = values[(row + pageIndex) % values.length] ?? 1
-      drawDie(doc, 30, y, value)
-
-      doc.setDrawColor(100, 116, 139)
-      doc.setLineWidth(0.55)
-      for (let circle = 0; circle < 6; circle += 1) {
-        doc.circle(78 + (circle * 18), y + 12, 6.7, 'S')
-      }
-    }
-
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(11)
     doc.setTextColor(71, 85, 105)
-    doc.text('Hoeveel ogen staan er op de dobbelsteen? Kleur het juiste aantal rondjes.', pageMargin, 267)
+    doc.text(isTracingMode ? 'Trek de lijnen over.' : isPictureMode ? 'Tel de vormen en omcirkel het juiste cijfer.' : isNumberMode ? 'Kleur evenveel rondjes als het cijfer.' : 'Hoeveel ogen staan er op de dobbelsteen? Kleur het juiste aantal rondjes.', pageMargin, 44)
+
+    const values = maxValue <= 5 ? [3, 1, 4, 5, 2] : [3, 1, 6, 4, 5, 2]
+    const remaining = Math.min(rowsPerPage, amount - (pageIndex * rowsPerPage))
+    for (let row = 0; row < remaining; row += 1) {
+      const y = rowYs[row] ?? 53
+      if (isTracingMode) {
+        drawTracingPattern(doc, row, y + 12)
+        continue
+      }
+      const value = isNumberMode
+        ? (((row + pageIndex * rowsPerPage) * 7) % maxValue) + 1
+        : isPictureMode
+          ? (((row + pageIndex * rowsPerPage) * (maxValue <= 5 ? 2 : 3)) % maxValue) + 1
+          : (values[(row + pageIndex) % values.length] ?? 1)
+      if (isPictureMode) {
+        doc.setDrawColor(148, 163, 184)
+        doc.setLineWidth(0.45)
+        doc.rect(20, y + 1, 52, 25, 'S')
+        for (let icon = 0; icon < value; icon += 1) {
+          drawPictureIcon(doc, 27 + ((icon % 4) * 12), y + 6 + (Math.floor(icon / 4) * 8.5), row)
+        }
+        doc.setFontSize(13)
+        doc.setTextColor(71, 85, 105)
+        const optionStartX = maxValue <= 5 ? 103 : 88
+        const optionSpacing = maxValue <= 5 ? 18 : 10
+        for (let number = 1; number <= maxValue; number += 1) doc.text(String(number), optionStartX + ((number - 1) * optionSpacing), y + 15)
+      } else if (isNumberMode) {
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(25); doc.setTextColor(15, 23, 42)
+        doc.text(String(value), 28, y + 17, { align: 'center' })
+      } else drawDie(doc, 30, y, value)
+
+      if (!isPictureMode) {
+        doc.setDrawColor(100, 116, 139)
+        doc.setLineWidth(0.55)
+        const firstCircleX = isNumberMode ? 52 : 70
+        for (let circle = 0; circle < circleCount; circle += 1) {
+          doc.circle(firstCircleX + (circle * (maxValue <= 5 ? 18 : 13)), y + 12, 5.2, 'S')
+        }
+      }
+    }
+
   }
+}
+
+function getCountingAnswers(group: string, exercise: string, amount: number) {
+  const maxValue = Number(group) <= 1 ? 5 : 10
+  const values = maxValue <= 5 ? [3, 1, 4, 5, 2] : [3, 1, 6, 4, 5, 2]
+
+  return Array.from({ length: amount }, (_, index) => {
+    const rowIndex = index % countingQuestionsPerPage
+    const pageIndex = Math.floor(index / countingQuestionsPerPage)
+    const answer = exercise === 'tellen-cijfers'
+      ? (((index * 7) % maxValue) + 1)
+      : exercise === 'tellen-vormen'
+        ? (((index * (maxValue <= 5 ? 2 : 3)) % maxValue) + 1)
+        : values[(rowIndex + pageIndex) % values.length]
+
+    return `${index + 1}. ${answer}`
+  })
 }
 
 async function getWorksheetQuestions(
@@ -845,7 +1089,7 @@ export async function generateWorksheetPdf(
   difficulty?: string,
   includeAnswerSheet = false,
 ) {
-  if (exercise === 'tellen') {
+  if (exercise.startsWith('tellen-')) {
     layout = 'counting'
   }
   const maxAmount = layout === 'compact-arithmetic'
@@ -858,14 +1102,18 @@ export async function generateWorksheetPdf(
 
   const doc = new jsPDF()
 
+  if (earlyLearningExercises.has(exercise)) {
+    addEarlyLearningPages(doc, group, exercise, amount)
+    addFooter(doc, group, exercise)
+    doc.save(getWorksheetFileName(group, exercise))
+    return
+  }
+
   if (layout === 'counting') {
     addCountingPages(doc, group, exercise, amount)
     addFooter(doc, group, exercise)
     if (includeAnswerSheet) {
-      const answers = Array.from({ length: amount }, (_, index) => {
-        const values = [3, 1, 6, 4, 5, 2]
-        return `${index + 1}. ${values[(index % 6 + Math.floor(index / 6)) % 6]}`
-      })
+      const answers = getCountingAnswers(group, exercise, amount)
       const answerStartPage = doc.getNumberOfPages() + 1
       addAnswerSheet(doc, getWorksheetTitle(group, exercise), [{ title: 'Tellen', answers }])
       addAnswerFooter(doc, answerStartPage)
@@ -937,6 +1185,23 @@ export async function generateWorkbookPdf(
   }
 
   for (const section of activeSections) {
+    if (section.exercise.startsWith('tellen-')) {
+      if (hasPages) doc.addPage()
+      addCountingPages(doc, group, section.exercise, section.amount)
+      answerSections.push({
+        title: formatExerciseName(section.exercise),
+        answers: getCountingAnswers(group, section.exercise, section.amount),
+      })
+      hasPages = true
+      continue
+    }
+
+    if (earlyLearningExercises.has(section.exercise)) {
+      addEarlyLearningPages(doc, group, section.exercise, section.amount, hasPages)
+      hasPages = true
+      continue
+    }
+
     const layout = isCompactArithmeticExercise(section.exercise) ? 'compact-arithmetic' : 'default'
     const content = await getWorksheetQuestions(group, section.exercise, section.amount, layout, theme, difficulty)
 

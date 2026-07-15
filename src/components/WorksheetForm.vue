@@ -79,7 +79,20 @@ const exerciseOptionGroupsByGroup: Record<string, ExerciseOptionGroup[]> = {
         {
             label: 'Rekenen',
             options: [
-                { value: 'tellen', label: 'Tellen' },
+                { value: 'tellen-dobbelsteen', label: 'Tellen - dobbelsteen' },
+                { value: 'tellen-cijfers', label: 'Tellen - cijfers' },
+                { value: 'tellen-vormen', label: 'Tellen - vormen' },
+                { value: 'cijfers-overtrekken', label: 'Cijfers overtrekken' },
+            ],
+        },
+        {
+            label: 'Motoriek',
+            options: [
+                { value: 'lijnen-overtrekken', label: 'Lijnen overtrekken' },
+                { value: 'raamfiguren', label: 'Raamfiguren natekenen' },
+                { value: 'spiegelen', label: 'Spiegelen' },
+                { value: 'schaduwen', label: 'Schaduwen koppelen' },
+                { value: 'woorden-overtrekken', label: 'Woorden overtrekken' },
             ],
         },
     ],
@@ -87,7 +100,20 @@ const exerciseOptionGroupsByGroup: Record<string, ExerciseOptionGroup[]> = {
         {
             label: 'Rekenen',
             options: [
-                { value: 'tellen', label: 'Tellen' },
+                { value: 'tellen-dobbelsteen', label: 'Tellen - dobbelsteen' },
+                { value: 'tellen-cijfers', label: 'Tellen - cijfers' },
+                { value: 'tellen-vormen', label: 'Tellen - vormen' },
+                { value: 'cijfers-overtrekken', label: 'Cijfers overtrekken' },
+            ],
+        },
+        {
+            label: 'Motoriek',
+            options: [
+                { value: 'lijnen-overtrekken', label: 'Lijnen overtrekken' },
+                { value: 'raamfiguren', label: 'Raamfiguren natekenen' },
+                { value: 'spiegelen', label: 'Spiegelen' },
+                { value: 'schaduwen', label: 'Schaduwen koppelen' },
+                { value: 'woorden-overtrekken', label: 'Woorden overtrekken' },
             ],
         },
     ],
@@ -223,8 +249,8 @@ const exerciseOptionGroupsByGroup: Record<string, ExerciseOptionGroup[]> = {
     ],
 }
 const workbookExercisesByGroup: Record<string, string[]> = {
-    1: ['tellen'],
-    2: ['tellen'],
+    1: ['tellen-dobbelsteen', 'tellen-cijfers', 'tellen-vormen', 'cijfers-overtrekken', 'lijnen-overtrekken', 'raamfiguren', 'spiegelen', 'schaduwen', 'woorden-overtrekken'],
+    2: ['tellen-dobbelsteen', 'tellen-cijfers', 'tellen-vormen', 'cijfers-overtrekken', 'lijnen-overtrekken', 'raamfiguren', 'spiegelen', 'schaduwen', 'woorden-overtrekken'],
     3: ['contextsommen', 'begrijpend-lezen', 'woordenschat', 'rijmen', 'optellen', 'aftrekken', 'splitsen'],
     4: ['contextsommen', 'begrijpend-lezen', 'woordenschat', 'spelling', 'optellen', 'aftrekken', 'tafels'],
     5: ['contextsommen', 'begrijpend-lezen', 'spelling', 'grammatica', 'woordenschat', 'vermenigvuldigen', 'delen'],
@@ -283,7 +309,28 @@ const loadingButtonText = computed(() => {
 const workbookExercises = computed(() => workbookExercisesByGroup[group.value] ?? workbookExercisesByGroup[defaultGroup] ?? [])
 
 function getQuestionsPerPage(exerciseValue: string) {
-    if (exerciseValue === 'tellen') {
+    if (exerciseValue === 'raamfiguren') {
+        return 3
+    }
+    if (exerciseValue === 'spiegelen') {
+        return 2
+    }
+    if (exerciseValue === 'schaduwen' || exerciseValue === 'woorden-overtrekken') {
+        return 6
+    }
+    if (exerciseValue === 'cijfers-overtrekken') {
+        return group.value === '1' ? 5 : 10
+    }
+    if (exerciseValue === 'lijnen-overtrekken') {
+        return 5
+    }
+    if (exerciseValue === 'tellen-vormen') {
+        return 8
+    }
+    if (exerciseValue === 'tellen-cijfers') {
+        return 10
+    }
+    if (exerciseValue === 'tellen-dobbelsteen') {
         return countingQuestionsPerPage
     }
     if (compactArithmeticExercises.has(exerciseValue)) {
@@ -362,15 +409,24 @@ const amountHelpText = computed(() => {
         return `${pageCount.value} ${pageLabel}, gevuld met ongeveer ${workbookAssignmentAmount.value} opdrachten in een mix van ${exerciseLabels}.`
     }
 
-    const assignmentLabel = exercise.value === 'tellen'
-        ? 'dobbelstenen'
+    const assignmentLabel = exercise.value === 'tellen-cijfers'
+        ? 'cijfers'
+        : exercise.value === 'tellen-dobbelsteen'
+            ? 'dobbelstenen'
         : compactArithmeticExercises.has(exercise.value) ? 'sommen' : 'opdrachten'
     const pageLabel = estimatedPageCount.value === 1 ? 'pagina' : "pagina's"
 
     return `${questionsPerPage.value} ${assignmentLabel} per pagina. ${assignmentAmount.value} ${assignmentLabel} is ongeveer ${estimatedPageCount.value} ${pageLabel}.`
 })
 const supportsTheme = computed(() => isWorkbookMode.value || themeSupportedExercises.has(exercise.value))
-const supportsDifficulty = computed(() => isWorkbookMode.value || exercise.value !== 'tellen')
+const supportsDifficulty = computed(() => isWorkbookMode.value || ![
+    'cijfers-overtrekken',
+    'lijnen-overtrekken',
+    'raamfiguren',
+    'schaduwen',
+    'spiegelen',
+    'woorden-overtrekken',
+].includes(exercise.value) && !exercise.value.startsWith('tellen-'))
 const activeTheme = computed(() => supportsTheme.value ? normalizeTheme(theme.value) : '')
 
 function getFirstExerciseForGroup(groupValue: string) {
@@ -490,8 +546,10 @@ function validateAmount() {
     }
 
     if (quantityValue.value > quantityMax.value) {
-        const assignmentLabel = exercise.value === 'tellen'
-            ? 'dobbelstenen'
+        const assignmentLabel = exercise.value === 'tellen-cijfers'
+            ? 'cijfers'
+            : exercise.value === 'tellen-dobbelsteen'
+                ? 'dobbelstenen'
             : compactArithmeticExercises.has(exercise.value) ? 'sommen' : 'opdrachten'
 
         amountError.value = isWorkbookMode.value
