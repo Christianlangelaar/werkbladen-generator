@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import type {
     PdfGenerationResult,
     WorkbookGenerationProgress,
@@ -70,6 +70,8 @@ const generationError = ref('')
 const generationNotice = ref('')
 const lastGenerationResult = ref<PdfGenerationResult | null>(null)
 const isPreviewVisible = ref(false)
+const previewIframe = ref<HTMLIFrameElement | null>(null)
+const generationResultTitle = ref<HTMLElement | null>(null)
 const workbookProgress = ref<WorkbookGenerationProgress | null>(null)
 const isGenerating = ref(false)
 const generationStartedAt = ref(0)
@@ -731,6 +733,18 @@ function releasePreview() {
     isPreviewVisible.value = false
 }
 
+function printPdf() {
+    const previewWindow = previewIframe.value?.contentWindow
+
+    if (!previewWindow) {
+        generationError.value = 'De PDF-preview is nog niet klaar om af te drukken.'
+        return
+    }
+
+    previewWindow.focus()
+    previewWindow.print()
+}
+
 onBeforeUnmount(releasePreview)
 
 async function generatePdf() {
@@ -772,7 +786,10 @@ async function generatePdf() {
         const result = await workbookPdfPromise
 
         lastGenerationResult.value = result
+        isPreviewVisible.value = true
         generationNotice.value = result.warning ?? ''
+        await nextTick()
+        generationResultTitle.value?.focus()
     } catch (error) {
         generationError.value = error instanceof Error
             ? error.message
@@ -1295,13 +1312,15 @@ async function generatePdf() {
                 <div>
                     <h2
                         id="generation-result-title"
+                        ref="generationResultTitle"
+                        tabindex="-1"
                         class="font-semibold text-emerald-950"
                     >
                         Je PDF is klaar
                     </h2>
                     <p class="mt-1 text-sm text-emerald-800">
                         {{ generationSourceLabel }}, {{ lastGenerationResult.pageCount }}
-                        {{ lastGenerationResult.pageCount === 1 ? 'pagina' : "pagina's" }} en gedownload.
+                        {{ lastGenerationResult.pageCount === 1 ? 'pagina' : "pagina's" }}. Bekijk de preview en download wanneer je tevreden bent.
                     </p>
                 </div>
 
@@ -1310,27 +1329,44 @@ async function generatePdf() {
                 </span>
             </div>
 
-            <div class="mt-4 grid gap-2 sm:grid-cols-2">
+            <div class="mt-4 grid gap-2 sm:grid-cols-3">
+                <a
+                    :href="lastGenerationResult.previewUrl"
+                    :download="lastGenerationResult.fileName"
+                    class="rounded-lg bg-emerald-700 px-4 py-2 text-center text-sm font-semibold text-white transition hover:bg-emerald-800"
+                >
+                    Download PDF
+                </a>
+
+                <button
+                    type="button"
+                    class="rounded-lg border border-emerald-300 bg-white px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-50"
+                    @click="printPdf"
+                >
+                    Print PDF
+                </button>
+
                 <button
                     type="button"
                     class="rounded-lg border border-emerald-300 bg-white px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-50"
                     :aria-expanded="isPreviewVisible"
                     @click="isPreviewVisible = !isPreviewVisible"
                 >
-                    {{ isPreviewVisible ? 'Sluit preview' : 'Bekijk PDF-preview' }}
-                </button>
-
-                <button
-                    type="button"
-                    class="rounded-lg border border-emerald-300 px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100"
-                    @click="generatePdf"
-                >
-                    Maak nog een variant
+                    {{ isPreviewVisible ? 'Sluit preview' : 'Bekijk preview' }}
                 </button>
             </div>
 
+            <button
+                type="button"
+                class="mt-3 text-sm font-semibold text-emerald-800 underline decoration-emerald-300 underline-offset-4 hover:text-emerald-950"
+                @click="generatePdf"
+            >
+                Maak nog een variant
+            </button>
+
             <iframe
                 v-if="isPreviewVisible"
+                ref="previewIframe"
                 :src="lastGenerationResult.previewUrl"
                 title="Preview van de gemaakte PDF"
                 class="mt-4 h-96 w-full rounded-lg border border-emerald-200 bg-white"

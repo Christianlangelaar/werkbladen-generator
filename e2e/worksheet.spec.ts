@@ -19,8 +19,11 @@ test('maakt een werkblad en meldt gebruikte fallbackcontent', async ({ page }) =
   await page.getByLabel('Oefensoort', { exact: true }).selectOption('contextsommen')
   await page.getByLabel('Aantal opdrachten', { exact: true }).fill('2')
 
-  const downloadPromise = page.waitForEvent('download')
   await page.getByRole('button', { name: 'Maak werkblad', exact: true }).click()
+  await expect(page.getByTitle('Preview van de gemaakte PDF')).toBeVisible()
+
+  const downloadPromise = page.waitForEvent('download')
+  await page.getByRole('link', { name: 'Download PDF', exact: true }).click()
   const download = await downloadPromise
 
   expect(download.suggestedFilename()).toBe('groep4-contextsommen.pdf')
@@ -29,8 +32,8 @@ test('maakt een werkblad en meldt gebruikte fallbackcontent', async ({ page }) =
   await expect(result.getByText('Standaardcontent gebruikt', { exact: true })).toBeVisible()
   await expect(result).toContainText('1 pagina')
 
-  await page.getByRole('button', { name: 'Bekijk PDF-preview', exact: true }).click()
-  await expect(page.getByTitle('Preview van de gemaakte PDF')).toBeVisible()
+  await page.getByRole('button', { name: 'Sluit preview', exact: true }).click()
+  await expect(page.getByTitle('Preview van de gemaakte PDF')).toBeHidden()
 })
 
 test('maakt een werkboekje met voorblad en antwoordenblad', async ({ page }) => {
@@ -39,8 +42,11 @@ test('maakt een werkboekje met voorblad en antwoordenblad', async ({ page }) => 
   await page.getByLabel('Voorblad toevoegen', { exact: false }).check()
   await page.getByLabel('Antwoordenblad toevoegen', { exact: false }).check()
 
-  const downloadPromise = page.waitForEvent('download')
   await page.getByRole('button', { name: 'Maak werkboekje', exact: true }).click()
+  await expect(page.getByTitle('Preview van de gemaakte PDF')).toBeVisible()
+
+  const downloadPromise = page.waitForEvent('download')
+  await page.getByRole('link', { name: 'Download PDF', exact: true }).click()
   const download = await downloadPromise
 
   expect(download.suggestedFilename()).toBe('groep4-werkboekje.pdf')
@@ -115,9 +121,11 @@ test('bundelt een groot werkboekje per oefensoort en toont voortgang', async ({ 
   await page.getByLabel("Optellen: pagina's", { exact: true }).fill('3')
   await page.getByLabel('Antwoordenblad toevoegen', { exact: false }).check()
 
-  const downloadPromise = page.waitForEvent('download')
   await page.getByRole('button', { name: 'Maak werkboekje', exact: true }).click()
   await expect(page.getByRole('progressbar', { name: 'Voortgang werkboekje' })).toBeVisible()
+  await expect(page.getByTitle('Preview van de gemaakte PDF')).toBeVisible()
+  const downloadPromise = page.waitForEvent('download')
+  await page.getByRole('link', { name: 'Download PDF', exact: true }).click()
   await downloadPromise
 
   expect(worksheetRequests).toBe(7)
@@ -131,8 +139,10 @@ test('maakt lokale content wanneer de online limiet is bereikt', async ({ page }
     body: JSON.stringify({ error: 'Te veel verzoeken.' }),
   }))
 
-  const downloadPromise = page.waitForEvent('download')
   await page.getByRole('button', { name: 'Maak werkblad', exact: true }).click()
+  await expect(page.getByTitle('Preview van de gemaakte PDF')).toBeVisible()
+  const downloadPromise = page.waitForEvent('download')
+  await page.getByRole('link', { name: 'Download PDF', exact: true }).click()
   await downloadPromise
 
   await expect(page.getByRole('status')).toContainText('limiet voor online werkbladen is bereikt')

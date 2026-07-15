@@ -24,6 +24,7 @@ export type PdfGenerationResult = {
   source: 'openai' | 'fallback' | 'local'
   warning?: string
   previewUrl: string
+  fileName: string
   pageCount: number
 }
 
@@ -70,19 +71,14 @@ function sliceAndRenumberContent(
   }
 }
 
-function savePdfWithPreview(
+function createPdfResult(
   doc: jsPDF,
   fileName: string,
   source: PdfGenerationResult['source'],
   warning?: string,
 ): PdfGenerationResult {
   const previewUrl = URL.createObjectURL(doc.output('blob'))
-
-  if (import.meta.env.MODE !== 'test') {
-    doc.save(fileName)
-  }
-
-  return { source, warning, previewUrl, pageCount: doc.getNumberOfPages() }
+  return { source, warning, previewUrl, fileName, pageCount: doc.getNumberOfPages() }
 }
 
 type AnswerSection = {
@@ -1040,7 +1036,7 @@ export async function generateWorksheetPdf(
   if (earlyLearningExercises.has(exercise)) {
     addEarlyLearningPages(doc, group, exercise, amount)
     addFooter(doc, group, exercise)
-    return savePdfWithPreview(doc, getWorksheetFileName(group, exercise), 'local')
+    return createPdfResult(doc, getWorksheetFileName(group, exercise), 'local')
   }
 
   if (layout === 'counting') {
@@ -1052,7 +1048,7 @@ export async function generateWorksheetPdf(
       addAnswerSheet(doc, getWorksheetTitle(group, exercise), [{ title: 'Tellen', answers }])
       addAnswerFooter(doc, answerStartPage)
     }
-    return savePdfWithPreview(doc, getWorksheetFileName(group, exercise), 'local')
+    return createPdfResult(doc, getWorksheetFileName(group, exercise), 'local')
   }
 
   const content = await getWorksheetQuestions(group, exercise, amount, layout, theme, difficulty)
@@ -1076,7 +1072,7 @@ export async function generateWorksheetPdf(
       addAnswerFooter(doc, answerStartPage)
     }
 
-    return savePdfWithPreview(doc, getWorksheetFileName(group, exercise), content.source, content.warning)
+    return createPdfResult(doc, getWorksheetFileName(group, exercise), content.source, content.warning)
   }
 
   addDefaultExercisePages(doc, group, exercise, content.questions)
@@ -1091,7 +1087,7 @@ export async function generateWorksheetPdf(
     addAnswerFooter(doc, answerStartPage)
   }
 
-  return savePdfWithPreview(doc, getWorksheetFileName(group, exercise), content.source, content.warning)
+  return createPdfResult(doc, getWorksheetFileName(group, exercise), content.source, content.warning)
 }
 
 export async function generateWorkbookPdf(
@@ -1226,7 +1222,7 @@ export async function generateWorkbookPdf(
   }
 
   if (fallbackWarnings.size > 0) {
-    return savePdfWithPreview(
+    return createPdfResult(
       doc,
       getWorkbookFileName(group),
       'fallback',
@@ -1234,5 +1230,5 @@ export async function generateWorkbookPdf(
     )
   }
 
-  return savePdfWithPreview(doc, getWorkbookFileName(group), hasOpenAiContent ? 'openai' : 'local')
+  return createPdfResult(doc, getWorkbookFileName(group), hasOpenAiContent ? 'openai' : 'local')
 }
