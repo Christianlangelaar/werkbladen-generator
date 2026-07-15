@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf'
 import { createFallbackWorksheetContent } from '../../shared/fallbackWorksheet'
+import { createCompactArithmeticContent } from '../../shared/compactArithmetic'
 
 type WorksheetResponse = {
   questions: string[]
@@ -182,86 +183,6 @@ function setDefaultBodyTextStyle(doc: jsPDF) {
 
 function fallbackAnswers(amount: number) {
   return Array.from({ length: amount }, (_, index) => `${index + 1}. Antwoord niet beschikbaar.`)
-}
-
-function getCompactArithmeticQuestionAndAnswer(group: string, exercise: string, index: number) {
-  const groupNumber = Number(group) || 4
-  const seed = index + 1
-  const smallA = ((seed * 7) % 9) + 1
-  const smallB = ((seed * 5) % 9) + 1
-  const mediumA = ((seed * 17) % 89) + 10
-  const mediumB = ((seed * 13) % 89) + 10
-  const largeA = ((seed * 197) % 8_900) + 1_000
-  const largeB = ((seed * 131) % 8_900) + 1_000
-
-  if (exercise === 'aftrekken' || exercise === 'aftrekken-grote-getallen') {
-    const left = exercise === 'aftrekken-grote-getallen' ? Math.max(largeA, largeB) : Math.max(mediumA, mediumB)
-    const right = exercise === 'aftrekken-grote-getallen' ? Math.min(largeA, largeB) : Math.min(mediumA, mediumB)
-
-    return {
-      question: `${index + 1}. ${left} - ${right} = ...`,
-      answer: `${index + 1}. ${left - right}`,
-    }
-  }
-
-  if (exercise === 'tafels' || exercise === 'vermenigvuldigen') {
-    const left = groupNumber <= 4 ? smallA : ((seed * 11) % 12) + 1
-    const right = groupNumber <= 4 ? smallB : ((seed * 3) % 12) + 1
-
-    return {
-      question: `${index + 1}. ${left} x ${right} = ...`,
-      answer: `${index + 1}. ${left * right}`,
-    }
-  }
-
-  if (exercise === 'delen') {
-    const divisor = smallA
-    const answer = groupNumber <= 5 ? smallB : ((seed * 11) % 12) + 1
-
-    return {
-      question: `${index + 1}. ${divisor * answer} : ${divisor} = ...`,
-      answer: `${index + 1}. ${answer}`,
-    }
-  }
-
-  if (exercise === 'tafel-automatiseren') {
-    return seed % 3 === 0
-      ? {
-          question: `${index + 1}. ${smallA * smallB} : ${smallA} = ...`,
-          answer: `${index + 1}. ${smallB}`,
-        }
-      : {
-          question: `${index + 1}. ${smallA} x ${smallB} = ...`,
-          answer: `${index + 1}. ${smallA * smallB}`,
-        }
-  }
-
-  if (exercise === 'splitsen') {
-    const total = groupNumber <= 3 ? ((seed * 7) % 20) + 1 : ((seed * 7) % 100) + 1
-    const part = seed % total
-
-    return {
-      question: `${index + 1}. ${part} + ... = ${total}`,
-      answer: `${index + 1}. ${total - part}`,
-    }
-  }
-
-  const left = exercise === 'optellen-grote-getallen' ? largeA : mediumA
-  const right = exercise === 'optellen-grote-getallen' ? largeB : mediumB
-
-  return {
-    question: `${index + 1}. ${left} + ${right} = ...`,
-    answer: `${index + 1}. ${left + right}`,
-  }
-}
-
-function fallbackCompactArithmeticContent(group: string, exercise: string, amount: number): WorksheetContent {
-  const items = Array.from({ length: amount }, (_, index) => getCompactArithmeticQuestionAndAnswer(group, exercise, index))
-
-  return {
-    questions: items.map((item) => item.question),
-    answers: items.map((item) => item.answer),
-  }
 }
 
 function formatExerciseName(exercise: string) {
@@ -909,7 +830,7 @@ async function getWorksheetQuestions(
       const waitText = Number.isFinite(retryAfter) ? ` Probeer het over ${retryAfter} seconden opnieuw.` : ''
 
       const fallbackContent = layout === 'compact-arithmetic'
-        ? fallbackCompactArithmeticContent(group, exercise, amount)
+        ? createCompactArithmeticContent(group, exercise, amount)
         : createFallbackWorksheetContent(group, exercise, amount)
 
       return {
@@ -939,7 +860,7 @@ async function getWorksheetQuestions(
     }
 
     const fallbackContent = layout === 'compact-arithmetic'
-      ? fallbackCompactArithmeticContent(group, exercise, amount)
+      ? createCompactArithmeticContent(group, exercise, amount)
       : createFallbackWorksheetContent(group, exercise, amount)
 
     return {
@@ -949,7 +870,7 @@ async function getWorksheetQuestions(
     }
   } catch {
     const fallbackContent = layout === 'compact-arithmetic'
-      ? fallbackCompactArithmeticContent(group, exercise, amount)
+      ? createCompactArithmeticContent(group, exercise, amount)
       : createFallbackWorksheetContent(group, exercise, amount)
 
     return {

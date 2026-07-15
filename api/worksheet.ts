@@ -1,5 +1,4 @@
-import OpenAI from 'openai'
-import { getWorksheetPrompt } from '../prompts'
+import { generateWorksheetContent } from '../server/generateWorksheetContent'
 import { RequestError, validateWorksheetRequest } from '../server/worksheetRequest'
 import { getRateLimitHeaders, worksheetRateLimiter } from '../server/rateLimit'
 
@@ -67,33 +66,11 @@ async function handleRequest(request: Request) {
       return json({ error: 'De werkbladgenerator is tijdelijk niet beschikbaar.' }, 503, rateLimitHeaders)
     }
 
-    const openai = new OpenAI({ apiKey })
-    const prompt = getWorksheetPrompt(group, exercise, amount, theme, difficulty)
-    const response = await openai.responses.create({
-      model: process.env.OPENAI_MODEL || 'gpt-5.5',
-      input: [
-        {
-          role: 'system',
-          content: 'Je maakt Nederlandse basisschool-werkbladen. Antwoord alleen met geldige JSON.',
-        },
-        { role: 'user', content: prompt },
-      ],
-    })
-    const parsed = JSON.parse(response.output_text) as { questions?: unknown, answers?: unknown }
-
-    if (!Array.isArray(parsed.questions) || !Array.isArray(parsed.answers)
-      || parsed.questions.length < amount || parsed.answers.length < amount) {
-      throw new Error('OpenAI gaf geen volledig werkblad terug.')
-    }
-
-    const questions = parsed.questions.slice(0, amount).map((question, index) => {
-      if (typeof question !== 'string' || !question.trim()) throw new Error('Ongeldige opdracht ontvangen.')
-      return `${index + 1}. ${question.replace(/^\d+\.\s*/, '').trim()}`
-    })
-    const answers = parsed.answers.slice(0, amount).map((answer, index) => {
-      if (typeof answer !== 'string' || !answer.trim()) throw new Error('Ongeldig antwoord ontvangen.')
-      return `${index + 1}. ${answer.replace(/^\d+\.\s*/, '').trim()}`
-    })
+    const { questions, answers } = await generateWorksheetContent(
+      { group, exercise, amount, layout, theme, difficulty },
+      apiKey,
+      process.env.OPENAI_MODEL,
+    )
 
     return json({ questions, answers, source: 'openai', layout }, 200, rateLimitHeaders)
   } catch (error) {
