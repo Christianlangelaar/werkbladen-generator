@@ -1,0 +1,33 @@
+name: Content evaluation
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Publieke URL die geëvalueerd moet worden
+        required: false
+        default: https://werkbladen-generator.vercel.app
+        type: string
+  schedule:
+    - cron: '0 5 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weekly-content-evaluation
+  cancel-in-progress: false
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Evaluate representative AI content
+        env:
+          EVALUATION_BASE_URL: ${{ inputs.base_url || 'https://werkbladen-generator.vercel.app' }}
+        run: npm run evaluate:content

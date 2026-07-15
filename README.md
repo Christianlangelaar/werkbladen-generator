@@ -53,6 +53,16 @@ npm run smoke -- https://jouw-domein.nl
 
 Dezelfde controle kan handmatig vanuit GitHub Actions worden gestart via de workflow `Production smoke test`.
 
+## Inhoudsevaluatie
+
+De productie-inhoud kan handmatig worden gecontroleerd met zes representatieve AI-aanvragen voor groep 3 tot en met 8:
+
+```sh
+npm run evaluate:content
+```
+
+De controle valideert bron, aantallen, nummering, variatie, bruikbare antwoorden, kwaliteitsfallbacks en ongewenste inhoud zonder de gegenereerde vragen en antwoorden in CI-logs te schrijven. De GitHub Actions-workflow `Content evaluation` draait dit wekelijks en kan ook handmatig tegen een andere publieke URL worden gestart. Groep 1 en 2 zijn niet opgenomen omdat die werkbladen lokaal en deterministisch worden opgebouwd.
+
 Gebruik `/api/health` voor een externe uptimecheck. De worksheet-API geeft iedere response een `X-Request-ID` en `Server-Timing` mee en schrijft gestructureerde JSON-logs met status, duur, oefensoort en uitkomst. Er worden geen IP-adressen of gegenereerde opdrachten gelogd.
 
 ### Productiemonitoring
