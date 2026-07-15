@@ -3,6 +3,7 @@ import { getWorksheetPrompt } from '../prompts'
 import { createCompactArithmeticContent } from '../shared/compactArithmetic'
 import { createFallbackWorksheetContent, type FallbackWorksheetContent } from '../shared/fallbackWorksheet'
 import type { ValidatedWorksheetRequest } from './worksheetRequest'
+import { validateWorksheetPairs } from './worksheetQuality'
 
 type GenerateOutput = (prompt: string, model: string, apiKey: string) => Promise<string>
 
@@ -21,15 +22,6 @@ async function requestOpenAIOutput(prompt: string, model: string, apiKey: string
   return response.output_text
 }
 
-function cleanItems(value: unknown, amount: number) {
-  if (!Array.isArray(value)) return []
-
-  return value
-    .slice(0, amount)
-    .filter((item): item is string => typeof item === 'string' && Boolean(item.trim()))
-    .map((item, index) => `${index + 1}. ${item.replace(/^\d+\.\s*/, '').trim()}`)
-}
-
 function createFallback(request: ValidatedWorksheetRequest, amount: number, startIndex = 0) {
   return request.layout === 'compact-arithmetic'
     ? createCompactArithmeticContent(request.group, request.exercise, amount, startIndex)
@@ -41,14 +33,24 @@ export function normalizeWorksheetOutput(
   request: ValidatedWorksheetRequest,
 ): FallbackWorksheetContent {
   const parsed = JSON.parse(outputText) as { questions?: unknown, answers?: unknown }
-  const questions = cleanItems(parsed.questions, request.amount)
-  const answers = cleanItems(parsed.answers, request.amount)
-  const completeAmount = Math.min(questions.length, answers.length)
+  const { pairs } = validateWorksheetPairs(
+    parsed.questions,
+    parsed.answers,
+    request.amount,
+    request.layout === 'compact-arithmetic',
+  )
+  const completeAmount = pairs.length
   const fallback = createFallback(request, request.amount - completeAmount, completeAmount)
 
   return {
-    questions: [...questions.slice(0, completeAmount), ...fallback.questions],
-    answers: [...answers.slice(0, completeAmount), ...fallback.answers],
+    questions: [
+      ...pairs.map((pair, index) => `${index + 1}. ${pair.question}`),
+      ...fallback.questions,
+    ],
+    answers: [
+      ...pairs.map((pair, index) => `${index + 1}. ${pair.answer}`),
+      ...fallback.answers,
+    ],
   }
 }
 

@@ -23,6 +23,19 @@ describe('shared worksheet generation', () => {
     expect(content.answers[1]).toMatch(/^2\. /)
   })
 
+  it('vervangt dubbele en onbruikbare modelinhoud door gecontroleerde fallback', () => {
+    const content = normalizeWorksheetOutput(JSON.stringify({
+      questions: ['1. Wat is 4 + 4?', '2. Wat is 4 + 4!', '3. Ongeschikte vraag over cocaïne'],
+      answers: ['1. 8', '2. acht', '3. Uitleg'],
+    }), request)
+
+    expect(content.questions).toHaveLength(3)
+    expect(content.questions[0]).toBe('1. Wat is 4 + 4?')
+    expect(content.questions[1]).not.toContain('Wat is 4 + 4')
+    expect(content.questions.join(' ')).not.toContain('cocaïne')
+    expect(content.answers).toHaveLength(3)
+  })
+
   it('gebruikt dezelfde prompt, modelkeuze en normalisatie voor iedere server', async () => {
     const generateOutput = vi.fn().mockResolvedValue(JSON.stringify({
       questions: ['Vraag 1', 'Vraag 2', 'Vraag 3'],
