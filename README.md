@@ -17,6 +17,8 @@ npm run dev
 
 Vul in `.env.local` minimaal `OPENAI_API_KEY` in. `OPENAI_MODEL` is optioneel en staat standaard op `gpt-5.5`. Met `WORKSHEET_RATE_LIMIT` kun je de standaardlimiet van 20 AI-aanvragen per IP per minuut aanpassen.
 
+Voor het algemene feedbackformulier gebruikt `/api/feedback` Resend server-side. Zet hiervoor `RESEND_API_KEY`, `FEEDBACK_EMAIL_TO` en `FEEDBACK_EMAIL_FROM`. `FEEDBACK_EMAIL_FROM` moet een afzender zijn op een in Resend geverifieerd domein. Wanneer een gebruiker een e-mailadres invult, gebruikt de API dit alleen als Reply-To en niet als afzender.
+
 OpenAI-aanvragen hebben een time-out van 45 seconden, maximaal één retry en standaard maximaal 4.000 outputtokens. Pas die laatste grens alleen indien nodig aan met `OPENAI_MAX_OUTPUT_TOKENS` (toegestaan: 256–8.000).
 
 ## Controles
@@ -46,6 +48,9 @@ Het productieproject is gekoppeld aan de GitHub-branch `main`: iedere push wordt
    - `OPENAI_MODEL` (optioneel)
    - `OPENAI_MAX_OUTPUT_TOKENS` (optioneel, standaard `4000`)
    - `WORKSHEET_RATE_LIMIT` (optioneel, standaard `20` per minuut)
+   - `RESEND_API_KEY` (voor het algemene feedbackformulier)
+   - `FEEDBACK_EMAIL_TO` (ontvanger van algemene feedback)
+   - `FEEDBACK_EMAIL_FROM` (geverifieerde Resend-afzender)
    - `UPSTASH_REDIS_REST_URL` en `UPSTASH_REDIS_REST_TOKEN` (aanbevolen voor een gedeelde limiter)
    - `OPENAI_INPUT_COST_PER_MILLION_USD` en `OPENAI_OUTPUT_COST_PER_MILLION_USD` (optioneel, voor kostenramingen in logs)
    - `VITE_SITE_URL` (de publieke URL, voor canonical- en socialmetadata)
@@ -85,6 +90,8 @@ De gestructureerde `worksheet_request`-logs bevatten geen vragen, antwoorden of 
 
 Feedback op een losse AI-opdracht wordt als `worksheet_feedback` gelogd met alleen request-ID, groep, oefensoort, opdrachtnummer en een vaste probleemcategorie. De vraag, het antwoord, vrije tekst en het IP-adres worden niet gelogd.
 
+Algemene feedback wordt met type, bericht, optioneel Reply-To-adres en technische context naar `FEEDBACK_EMAIL_TO` gestuurd. De technische context bevat feedback-ID, appversie, route, browser, platform en timestamp. De API logt bij succesvolle verzending alleen feedback-ID, type, route en afleverroute; berichttekst, e-mailadres, cookies, tokens en leerlinggegevens worden niet gelogd. Zonder mailconfiguratie geeft de API een `503` terug zodat ontbrekende productieconfiguratie zichtbaar blijft.
+
 ### Clientanalytics
 
 `src/services/analytics.ts` is de centrale, getypeerde analyticslaag. Zonder toestemming of ingestelde provider is deze volledig no-op. `src/services/posthogAnalytics.ts` koppelt PostHog pas na expliciete toestemming; fouten of ontbrekende configuratie vallen terug op no-op en hebben geen invloed op genereren of downloaden.
@@ -95,6 +102,7 @@ De MVP-events en properties zijn:
 - `generation_succeeded`: dezelfde properties plus `source`;
 - `generation_failed`: dezelfde basisproperties plus de vaste `errorCategory` `generation_error`;
 - `pdf_downloaded`: dezelfde basisproperties plus `source`.
+- `feedback_submitted`: alleen het vaste feedbacktype `problem`, `feature` of `other`.
 
 `outputType` is `worksheet` of `workbook`; `exercises` bevat uitsluitend gekozen vaste vak-/oefensoortcodes en `theme` uitsluitend een vaste themakeuze of `null`. Namen, e-mailadressen, prompts, gegenereerde opdrachten, antwoorden, vrije invoer, foutmeldingen en leerlinggegevens worden niet gevolgd. Autocapture, pageviews, sessie-opnames, foutregistratie, performancecapture, externe SDK-uitbreidingen, feature flags en persoonsprofielen staan uit. Events zetten bovendien `$ip` expliciet op `null`.
 

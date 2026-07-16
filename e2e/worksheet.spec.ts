@@ -30,6 +30,37 @@ test('legt privacy, tijdelijke IP-verwerking en externe verwerkers uit', async (
   await expect(page.getByRole('link', { name: 'ontwikkelstudio@gmail.com', exact: true })).toHaveAttribute('href', 'mailto:ontwikkelstudio@gmail.com')
 })
 
+test('verstuurt algemene feedback vanuit de footer', async ({ page }) => {
+  let feedbackPayload: Record<string, unknown> | undefined
+  await page.route('**/api/feedback', async (route) => {
+    feedbackPayload = route.request().postDataJSON() as Record<string, unknown>
+    await route.fulfill({
+      status: 202,
+      contentType: 'application/json',
+      body: JSON.stringify({ ok: true, feedbackId: feedbackPayload.feedbackId }),
+    })
+  })
+
+  await page.getByRole('button', { name: 'Feedback geven', exact: true }).click()
+  await expect(page.getByRole('dialog', { name: 'Feedback geven', exact: true })).toBeVisible()
+  await page.getByLabel('Type', { exact: true }).selectOption('feature')
+  await page.getByLabel('Bericht', { exact: true }).fill('Graag ook plus- en minsommen door elkaar.')
+  await page.getByLabel('E-mailadres', { exact: false }).fill('ouder@example.com')
+  await page.getByRole('button', { name: 'Verstuur feedback', exact: true }).click()
+
+  await expect(page.getByRole('status')).toContainText('Bedankt, je feedback is verstuurd.')
+  expect(feedbackPayload).toMatchObject({
+    type: 'feature',
+    message: 'Graag ook plus- en minsommen door elkaar.',
+    email: 'ouder@example.com',
+    website: '',
+  })
+  expect(feedbackPayload?.context).toMatchObject({
+    route: '/',
+    appVersion: '0.0.0',
+  })
+})
+
 test('maakt een werkblad en meldt gebruikte fallbackcontent', async ({ page }) => {
   await page.getByLabel('Groep', { exact: true }).selectOption('4')
   await page.getByLabel('Oefensoort', { exact: true }).selectOption('contextsommen')

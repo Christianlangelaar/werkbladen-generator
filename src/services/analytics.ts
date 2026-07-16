@@ -15,6 +15,9 @@ export type AnalyticsEventProperties = {
   pdf_downloaded: GenerationContext & {
     source: 'openai' | 'fallback' | 'local'
   }
+  feedback_submitted: {
+    type: 'problem' | 'feature' | 'other'
+  }
 }
 
 export type AnalyticsEventName = keyof AnalyticsEventProperties
