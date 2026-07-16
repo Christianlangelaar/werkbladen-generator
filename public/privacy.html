@@ -31,7 +31,10 @@
     <p>Het IP-adres van een verzoek wordt tijdelijk gebruikt om het aantal aanvragen per minuut te beperken. Bij gedeelde rate limiting wordt hiervan eerst een eenrichtingshash gemaakt; het oorspronkelijke IP-adres wordt niet naar Upstash gestuurd. De teller verloopt automatisch binnen maximaal twee minuten. Zonder Upstash blijft de tijdelijke teller alleen in het geheugen van de actieve serverinstantie. Het IP-adres wordt niet opgenomen in de applicatielogs.</p>
 
     <h2>Lokale opslag</h2>
-    <p>Instellingen en zelf opgeslagen sjablonen staan uitsluitend in de lokale opslag van je browser. Je kunt ze verwijderen via de browserinstellingen of door individuele sjablonen in de app te verwijderen.</p>
+    <p>Instellingen, zelf opgeslagen sjablonen en je analyticskeuze staan in de lokale opslag van je browser. Je kunt ze verwijderen via de browserinstellingen of door individuele sjablonen in de app te verwijderen.</p>
+
+    <h2>Analytics na toestemming</h2>
+    <p>Alleen wanneer je daarvoor toestemming geeft, stuurt de app beperkte gebruiksgebeurtenissen met een willekeurig analytics-ID naar PostHog. Het gaat om starten, slagen of mislukken van een generatie en klikken op downloaden, met uitsluitend het type document, groep, vaste oefensoortcode, vaste themakeuze, technische bron en een vaste foutcategorie. Autocapture, paginaweergaven, sessie-opnames, foutregistratie en persoonsprofielen zijn uitgeschakeld; het IP-adres wordt niet als eventproperty opgeslagen. Namen, e-mailadressen, gegenereerde opdrachten, antwoorden, vrije tekst en leerlinggegevens worden niet naar PostHog gestuurd. Je kunt je keuze via ‘Analyticsinstellingen’ onderaan de generator wijzigen.</p>
 
     <h2>Beveiliging en monitoring</h2>
     <p>Technische applicatielogs bevatten een willekeurig request-ID, status, responstijd, oefensoort en tokenaantallen. Vrijwillige feedback op een opdracht bevat alleen dit request-ID, groep, oefensoort, opdrachtnummer en een gekozen probleemcategorie. Vragen, antwoorden, vrije feedbacktekst en IP-adressen worden niet door de app gelogd. Vercel kan als hostingprovider wel standaard verzoek- en beveiligingsgegevens verwerken. Upstash wordt alleen gebruikt voor een tijdelijke, gehashte rate-limitteller wanneer deze dienst is geconfigureerd.</p>
@@ -45,7 +48,7 @@
     <h2>Jouw rechten en contact</h2>
     <p>Ontwikkel studio is verantwoordelijk voor deze dienst. Je kunt vragen stellen over gegevensgebruik of verzoeken om inzage, correctie of verwijdering wanneer de beheerder gegevens over jou heeft. Neem hiervoor contact op via <a href="mailto:ontwikkelstudio@gmail.com">ontwikkelstudio@gmail.com</a>.</p>
 
-    <p><small>Laatst bijgewerkt: 15 juli 2026.</small></p>
+    <p><small>Laatst bijgewerkt: 16 juli 2026.</small></p>
   </main>
 </body>
 </html>
