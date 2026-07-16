@@ -1,5 +1,35 @@
 <script setup lang="ts">
+import { onMounted, ref } from 'vue'
+import AnalyticsConsent from './components/AnalyticsConsent.vue'
 import WorksheetForm from './components/WorksheetForm.vue'
+import { getAnalyticsConsent, setAnalyticsConsent } from './services/analyticsConsent'
+import {
+  disablePostHogAnalytics,
+  enablePostHogAnalytics,
+  isPostHogConfigured,
+} from './services/posthogAnalytics'
+
+const showAnalyticsConsent = ref(false)
+
+onMounted(() => {
+  if (!isPostHogConfigured()) return
+
+  const consent = getAnalyticsConsent()
+  showAnalyticsConsent.value = consent === null
+  if (consent === 'granted') void enablePostHogAnalytics()
+})
+
+function acceptAnalytics() {
+  setAnalyticsConsent('granted')
+  showAnalyticsConsent.value = false
+  void enablePostHogAnalytics()
+}
+
+function declineAnalytics() {
+  setAnalyticsConsent('denied')
+  showAnalyticsConsent.value = false
+  disablePostHogAnalytics()
+}
 </script>
 
 <template>
@@ -22,7 +52,21 @@ import WorksheetForm from './components/WorksheetForm.vue'
         >
           Privacy en gegevensgebruik
         </a>
+        <button
+          v-if="isPostHogConfigured()"
+          type="button"
+          class="ml-3 font-medium underline decoration-slate-300 underline-offset-4 hover:text-emerald-800"
+          @click="showAnalyticsConsent = true"
+        >
+          Analyticsinstellingen
+        </button>
       </footer>
     </div>
   </main>
+
+  <AnalyticsConsent
+    v-if="showAnalyticsConsent"
+    @accept="acceptAnalytics"
+    @decline="declineAnalytics"
+  />
 </template>

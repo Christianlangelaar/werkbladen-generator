@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import WorksheetFeedback from './WorksheetFeedback.vue'
+import { track, type GenerationContext } from '../services/analytics'
 import type {
     EditableWorksheetItem,
     PdfGenerationResult,
@@ -91,6 +92,7 @@ const workbookProgress = ref<WorkbookGenerationProgress | null>(null)
 const isGenerating = ref(false)
 const generationStartedAt = ref(0)
 const elapsedSeconds = ref(0)
+const lastGenerationContext = ref<GenerationContext | null>(null)
 let generationTimer: number | undefined
 
 const fieldClass = 'w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-950 transition disabled:cursor-wait disabled:bg-slate-50 disabled:text-slate-500 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-100'
@@ -902,6 +904,16 @@ async function generatePdf() {
     isGenerating.value = true
     startGenerationTimer()
 
+    const generationContext: GenerationContext = {
+        outputType: mode.value,
+        group: group.value,
+        exercises: isWorkbookMode.value
+            ? [...new Set(workbookSections.value.map((section) => section.exercise))]
+            : [exercise.value],
+        theme: activeTheme.value || null,
+    }
+    track('generation_started', generationContext)
+
     try {
         const { generateWorkbookPdf, generateWorksheetPdf } = await import('../services/generateWorksheetPdf')
         const workbookPdfPromise = isWorkbookMode.value
@@ -929,13 +941,16 @@ async function generatePdf() {
         const result = await workbookPdfPromise
 
         lastGenerationResult.value = result
+        lastGenerationContext.value = generationContext
         editableItems.value = result.editableItems?.map((item) => ({ ...item })) ?? []
         hasUnappliedEdits.value = false
         isPreviewVisible.value = true
         generationNotice.value = result.warning ?? ''
+        track('generation_succeeded', { ...generationContext, source: result.source })
         await nextTick()
         generationResultTitle.value?.focus()
     } catch (error) {
+        track('generation_failed', { ...generationContext, errorCategory: 'generation_error' })
         generationError.value = error instanceof Error
             ? error.message
             : 'Er ging iets mis met het maken van het werkblad.'
@@ -943,6 +958,15 @@ async function generatePdf() {
         stopGenerationTimer()
         isGenerating.value = false
     }
+}
+
+function trackPdfDownload() {
+    if (!lastGenerationResult.value || !lastGenerationContext.value) return
+
+    track('pdf_downloaded', {
+        ...lastGenerationContext.value,
+        source: lastGenerationResult.value.source,
+    })
 }
 </script>
 
@@ -1652,6 +1676,7 @@ async function generatePdf() {
                     :href="lastGenerationResult.previewUrl"
                     :download="lastGenerationResult.fileName"
                     class="rounded-lg bg-emerald-700 px-4 py-2 text-center text-sm font-semibold text-white transition hover:bg-emerald-800"
+                    @click="trackPdfDownload"
                 >
                     Download PDF
                 </a>
