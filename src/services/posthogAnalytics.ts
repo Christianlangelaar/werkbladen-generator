@@ -1,6 +1,6 @@
 import { setAnalyticsProvider, type AnalyticsProvider } from './analytics'
 
-type PostHogClient = typeof import('posthog-js')['default']
+type PostHogClient = (typeof import('posthog-js'))['default']
 
 let posthogClient: PostHogClient | undefined
 
@@ -63,4 +63,8 @@ export async function enablePostHogAnalytics() {
 export function disablePostHogAnalytics() {
   setAnalyticsProvider()
   posthogClient?.opt_out_capturing()
+}
+
+export function captureError(error: unknown) {
+  posthogClient?.captureException(error)
 }
