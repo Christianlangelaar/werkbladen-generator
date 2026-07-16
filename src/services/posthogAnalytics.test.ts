@@ -46,7 +46,7 @@ describe('PostHog analytics-provider', () => {
       advanced_disable_flags: true,
       advanced_disable_feature_flags: true,
       person_profiles: 'never',
-      respect_dnt: true,
+      respect_dnt: false,
     }))
     expect(posthog.clear_opt_in_out_capturing).toHaveBeenCalledOnce()
 

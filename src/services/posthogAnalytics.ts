@@ -48,7 +48,7 @@ export async function enablePostHogAnalytics() {
       advanced_disable_feature_flags_on_first_load: true,
       person_profiles: 'never',
       persistence: 'localStorage',
-      respect_dnt: true,
+      respect_dnt: false,
     })
 
     posthogClient = posthog
