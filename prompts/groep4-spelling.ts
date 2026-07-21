@@ -6,6 +6,6 @@ export function groep4SpellingPrompt(amount: number) {
     'Gebruik duidelijke, alledaagse woorden en korte zinnen.',
     'Vermijd te moeilijke leenwoorden, werkwoordspelling en lange meerstapsopdrachten.',
     'Maak elke opdracht zelfstandig te begrijpen en vraag steeds om precies 1 antwoord.',
-    'Geef alleen JSON terug in deze vorm: {"questions":["1. Vul de ontbrekende letter in: b...k","2. Welk woord is goed gespeld: ... of ...?"]}.',
+    'Geef alleen JSON terug in deze vorm: {"questions":["1. Vul het woord aan in de zin: Ik lees een b__k.","2. Welk woord is goed gespeld: fiets of fietz?"]}.',
   ].join(' ')
 }

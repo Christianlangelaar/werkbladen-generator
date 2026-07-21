@@ -55,6 +55,7 @@ export function normalizeWorksheetOutput(
     parsed.answers,
     request.amount,
     request.layout === 'compact-arithmetic',
+    request.exercise,
   )
   const completeAmount = pairs.length
   const fallback = createFallback(request, request.amount - completeAmount, completeAmount)
@@ -78,6 +79,7 @@ function normalizeWorksheetOutputWithQuality(outputText: string, request: Valida
     parsed.answers,
     request.amount,
     request.layout === 'compact-arithmetic',
+    request.exercise,
   )
   const completeAmount = pairs.length
   const fallback = createFallback(request, request.amount - completeAmount, completeAmount)

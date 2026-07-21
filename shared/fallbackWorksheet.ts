@@ -42,7 +42,7 @@ const verbItems: ExerciseItem[] = [
 const grammarItems: ExerciseItem[] = [
   { question: 'Wat is het onderwerp in: De vrolijke hond rent door het park?', answer: 'De vrolijke hond.' },
   { question: 'Wat is de persoonsvorm in: Morgen spelen wij een wedstrijd?', answer: 'spelen' },
-  { question: 'Noem het zelfstandig naamwoord in: Sara draagt een rode jas.', answer: 'Sara en jas.' },
+  { question: 'Noem de zelfstandige naamwoorden in: Sara draagt een rode jas.', answer: 'Sara en jas.' },
   { question: 'Noem het bijvoeglijk naamwoord in: De kleine kat slaapt.', answer: 'kleine' },
   { question: 'Zet in het meervoud: Het kind leest een boek.', answer: 'De kinderen lezen boeken.' },
 ]

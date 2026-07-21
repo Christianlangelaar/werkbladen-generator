@@ -6,6 +6,6 @@ export function groep5SpellingPrompt(amount: number) {
     'Gebruik duidelijke, alledaagse woorden en korte zinnen.',
     'Vermijd werkwoordspelling; die heeft een aparte oefensoort.',
     'Maak elke opdracht zelfstandig te begrijpen en vraag steeds om precies 1 antwoord.',
-    'Geef alleen JSON terug in deze vorm: {"questions":["1. Welk woord is goed gespeld: ... of ...?","2. Maak het woord af: ..."]}.',
+    'Geef alleen JSON terug in deze vorm: {"questions":["1. Welk woord is goed gespeld: onmiddellijk of onmiddelijk?","2. Vul het woord aan in de zin: De bakker verkoopt br__d."]}.',
   ].join(' ')
 }

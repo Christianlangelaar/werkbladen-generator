@@ -48,6 +48,26 @@ describe('shared worksheet generation', () => {
     expect(content.answers).toHaveLength(3)
   })
 
+  it('vervangt onduidelijke woordaanvullingen door gecontroleerde spellinginhoud', () => {
+    const spellingRequest: ValidatedWorksheetRequest = {
+      ...request,
+      exercise: 'spelling',
+      amount: 2,
+    }
+    const content = normalizeWorksheetOutput(JSON.stringify({
+      questions: [
+        '1. Vul aan: la__ (je doet hem open met een sleutel).',
+        '2. Vul aan: p__s (een dier dat zwemt).',
+      ],
+      answers: ['1. lade', '2. poes'],
+    }), spellingRequest)
+
+    expect(content.questions).toHaveLength(2)
+    expect(content.questions.join(' ')).not.toContain('la__')
+    expect(content.questions.join(' ')).not.toContain('p__s')
+    expect(content.answers).toHaveLength(2)
+  })
+
   it('gebruikt dezelfde prompt, modelkeuze en normalisatie voor iedere server', async () => {
     const generateOutput = vi.fn().mockResolvedValue(JSON.stringify({
       questions: ['Vraag 1', 'Vraag 2', 'Vraag 3'],

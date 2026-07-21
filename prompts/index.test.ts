@@ -8,6 +8,14 @@ describe('getWorksheetPrompt', () => {
     expect(prompt).toContain('6')
     expect(prompt).toContain('"questions"')
     expect(prompt).toContain('"answers"')
+    expect(prompt).toContain('aanwijzing, context en zichtbare letters')
+  })
+
+  it('vereist eenduidige woordaanvullingen met een volledig antwoord', () => {
+    const prompt = getWorksheetPrompt('4', 'spelling', 6)
+
+    expect(prompt).toContain('volledige, eenduidige voorbeeldzin')
+    expect(prompt).toContain('volledig aangevulde woord')
   })
 
   it('voegt een ondersteund thema en moeilijkheid toe', () => {

@@ -25,11 +25,28 @@ function duplicateKey(value: string) {
     .replace(/[\p{P}\p{S}\s]+/gu, '')
 }
 
+function hasInvalidMaskedSpelling(question: string, answer: string) {
+  const maskedWord = question.match(/\b[\p{L}]*_+[\p{L}_]*\b/u)?.[0]
+  if (!maskedWord) return false
+
+  // A losse omschrijving zoals `p__s (een dier dat zwemt)` is vaak
+  // meerduidig en kan inhoudelijk botsen met het bedoelde woord.
+  if (/\([^)]{4,}\)/.test(question)) return true
+
+  const answerWord = answer.match(/[\p{L}]+/u)?.[0]
+  if (!answerWord || answerWord.length !== maskedWord.length) return true
+
+  return [...maskedWord].some((character, index) => {
+    return character !== '_' && character.toLocaleLowerCase('nl') !== answerWord[index]?.toLocaleLowerCase('nl')
+  })
+}
+
 export function validateWorksheetPairs(
   questionsValue: unknown,
   answersValue: unknown,
   amount: number,
   validateArithmetic = false,
+  exercise?: string,
 ): { pairs: WorksheetPair[], report: WorksheetQualityReport } {
   const questions = Array.isArray(questionsValue) ? questionsValue : []
   const answers = Array.isArray(answersValue) ? answersValue : []
@@ -53,6 +70,10 @@ export function validateWorksheetPairs(
     }
     if (inappropriatePattern.test(question) || inappropriatePattern.test(answer)) {
       report.inappropriate += 1
+      continue
+    }
+    if (exercise === 'spelling' && hasInvalidMaskedSpelling(question, answer)) {
+      report.incorrect += 1
       continue
     }
     if (validateArithmetic) {

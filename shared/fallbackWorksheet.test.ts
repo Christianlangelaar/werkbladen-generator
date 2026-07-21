@@ -35,4 +35,11 @@ describe('createFallbackWorksheetContent', () => {
     expect(content.questions[1]).toContain('boeken')
     expect(content.answers[1]).toBe('2. 19')
   })
+
+  it('stelt grammaticale vragen in lijn met het aantal antwoorden', () => {
+    const content = createFallbackWorksheetContent('5', 'grammatica', 3)
+
+    expect(content.questions[2]).toContain('zelfstandige naamwoorden')
+    expect(content.answers[2]).toContain('Sara en jas')
+  })
 })

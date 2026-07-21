@@ -36,6 +36,24 @@ describe('validateWorksheetPairs', () => {
     expect(result.report.incorrect).toBe(1)
   })
 
+  it('weigert onduidelijke of niet-passende woordaanvullingen bij spelling', () => {
+    const result = validateWorksheetPairs(
+      [
+        'Vul aan: la__ (je doet hem open met een sleutel).',
+        'Vul aan: p__s (een dier dat zwemt).',
+        'Vul aan: poe_ in de zin: De poes ligt op de bank.',
+        'Vul aan: b__m in de zin: De boom staat in de tuin.',
+      ],
+      ['lade', 'poes', 's', 'boom'],
+      4,
+      false,
+      'spelling',
+    )
+
+    expect(result.pairs).toEqual([{ question: 'Vul aan: b__m in de zin: De boom staat in de tuin.', answer: 'boom' }])
+    expect(result.report).toMatchObject({ accepted: 1, incorrect: 3 })
+  })
+
   it.each([
     ['3', 'contextsommen'],
     ['5', 'werkwoordspelling'],

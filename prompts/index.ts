@@ -167,8 +167,13 @@ export function getWorksheetPrompt(
     'Geef ook een kort antwoordmodel terug.',
     'Gebruik precies deze JSON-vorm: {"questions":["1. ...","2. ..."],"answers":["1. ...","2. ..."]}.',
     'Zorg dat answers evenveel items bevat als questions en dat elk antwoord bij dezelfde opdracht hoort.',
+    'Controleer vóór het teruggeven ieder vraag-antwoordpaar op betekenis: de aanwijzing, context en zichtbare letters moeten allemaal exact bij het antwoord passen.',
   ].join(' ')
-  const extraInstructions = [themeInstruction, difficultyInstruction, answerInstruction].filter(Boolean)
+  const spellingQualityInstruction = exercise === 'spelling' ? [
+    'Combineer een onvolledig woord nooit met een vage omschrijving tussen haakjes; gebruik bij ontbrekende letters een volledige, eenduidige voorbeeldzin.',
+    'Geef bij een woord met ontbrekende letters als antwoord altijd het volledig aangevulde woord, niet alleen de ontbrekende letters.',
+  ].join(' ') : ''
+  const extraInstructions = [themeInstruction, difficultyInstruction, answerInstruction, spellingQualityInstruction].filter(Boolean)
 
   return extraInstructions.length > 0 ? `${cleanBasePrompt} ${extraInstructions.join(' ')}` : cleanBasePrompt
 }
