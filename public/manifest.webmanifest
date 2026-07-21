@@ -1,7 +1,7 @@
 {
   "name": "Werkbladen Generator",
   "short_name": "Werkbladen",
-  "description": "Maak Nederlandse basisschoolwerkbladen als PDF.",
+  "description": "AI-hulp voor passend, direct printbaar oefenmateriaal voor iedere leerling.",
   "lang": "nl",
   "start_url": "/",
   "display": "standalone",

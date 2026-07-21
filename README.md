@@ -1,6 +1,6 @@
 # Werkbladen Generator
 
-Vue/Vite-app voor het maken van Nederlandse basisschoolwerkbladen en werkboekjes als PDF. De opdrachten worden via OpenAI gegenereerd; als de generator niet beschikbaar is, maakt de browser een lokale standaardversie.
+AI-leerkrachthulpmiddel voor het maken van passend oefenmateriaal voor groep 1 tot en met 8. Leerkrachten stemmen werkbladen en werkboekjes af op groep, niveau en thema en kunnen het resultaat direct printen. De opdrachten worden via OpenAI gegenereerd; als AI-generatie niet beschikbaar is, maakt de browser een lokale standaardversie.
 
 Broncode en automatische controles staan in [Christianlangelaar/werkbladen-generator](https://github.com/Christianlangelaar/werkbladen-generator).
 

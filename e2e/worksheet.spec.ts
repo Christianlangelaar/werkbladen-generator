@@ -7,6 +7,12 @@ test.beforeEach(async ({ page }) => {
   await page.reload()
 })
 
+test('positioneert de app als AI-hulp voor passend oefenmateriaal', async ({ page }) => {
+  await expect(page.getByText('AI-hulp voor leerkrachten', { exact: true })).toBeVisible()
+  await expect(page.getByText('Maak in enkele minuten passend oefenmateriaal voor iedere leerling.', { exact: true })).toBeVisible()
+  await expect(page).toHaveTitle('Werkbladen Generator | AI-hulp voor leerkrachten')
+})
+
 test('healthcheck is beschikbaar voor monitoring', async ({ request }) => {
   const response = await request.get('/api/health')
 

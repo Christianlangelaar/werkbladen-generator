@@ -24,11 +24,11 @@ if (!healthResponse.ok || (await healthResponse.json()).status !== 'ok') {
 
 const pageResponse = await fetchWithTimeout('')
 const html = await pageResponse.text()
-if (!pageResponse.ok || !html.includes('<title>Werkbladen Generator</title>')) {
+if (!pageResponse.ok || !html.includes('<title>Werkbladen Generator | AI-hulp voor leerkrachten</title>')) {
   throw new Error(`Homepagecontrole mislukt met status ${pageResponse.status}.`)
 }
 
-for (const path of ['/privacy.html', '/social-preview.png', '/manifest.webmanifest']) {
+for (const path of ['/privacy.html', '/social-preview-v2.png', '/manifest.webmanifest']) {
   const response = await fetchWithTimeout(path)
   if (!response.ok) throw new Error(`${path} gaf status ${response.status}.`)
 }
