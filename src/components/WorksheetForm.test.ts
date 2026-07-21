@@ -15,6 +15,26 @@ vi.mock('../services/generateWorksheetPdf', () => ({
   regenerateWorksheetItem: vi.fn(),
 }))
 
+const entitlements = vi.hoisted(() => ({
+  authorizeGeneration: vi.fn(),
+  finalizeGeneration: vi.fn(async () => undefined),
+  startCreditCheckout: vi.fn(),
+}))
+
+vi.mock('../services/entitlements', () => entitlements)
+
+const allowedGeneration = {
+    allowed: true,
+    reason: 'free',
+    bypassed: true,
+    freeGenerationsUsed: 0,
+    freeGenerationsRemaining: 3,
+    creditBalance: 0,
+    worksheetCreditCost: 1,
+    workbookCreditCost: 3,
+    paymentsConfigured: false,
+}
+
 const mockedGenerateWorksheetPdf = vi.mocked(generateWorksheetPdf)
 const mockedGenerateWorkbookPdf = vi.mocked(generateWorkbookPdf)
 const mockedCreateEditedWorksheetPdf = vi.mocked(createEditedWorksheetPdf)
@@ -23,6 +43,7 @@ const mockedRegenerateWorksheetItem = vi.mocked(regenerateWorksheetItem)
 describe('WorksheetForm', () => {
   beforeEach(() => {
     window.localStorage.clear()
+    entitlements.authorizeGeneration.mockResolvedValue(allowedGeneration)
     mockedGenerateWorksheetPdf.mockResolvedValue({
       source: 'openai',
       previewUrl: 'blob:worksheet',
@@ -82,6 +103,7 @@ describe('WorksheetForm', () => {
       'Vlinders',
       undefined,
       false,
+      undefined,
     )
   })
 
@@ -151,6 +173,26 @@ describe('WorksheetForm', () => {
     await flushPromises()
 
     expect(mockedGenerateWorkbookPdf).toHaveBeenCalledOnce()
+    expect(mockedGenerateWorksheetPdf).not.toHaveBeenCalled()
+  })
+
+  it('toont de betaalmuur na drie gratis generaties en start geen PDF', async () => {
+    entitlements.authorizeGeneration.mockResolvedValue({
+      ...allowedGeneration,
+      allowed: false,
+      reason: 'payment_required',
+      freeGenerationsUsed: 3,
+      freeGenerationsRemaining: 0,
+      paymentsConfigured: true,
+    })
+    const wrapper = mount(WorksheetForm)
+
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(wrapper.get('#payment-wall-title').text()).toBe('Gratis tegoed en credits')
+    expect(wrapper.text()).toContain('0 van 3 gratis generaties over')
+    expect(wrapper.text()).toContain('Een werkblad kost 1 credit; een werkboekje 3 credits.')
     expect(mockedGenerateWorksheetPdf).not.toHaveBeenCalled()
   })
 

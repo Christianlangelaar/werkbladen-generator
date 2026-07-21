@@ -1,6 +1,8 @@
 import { generateWorksheetContent } from '../server/generateWorksheetContent.js'
 import { RequestError, validateWorksheetRequest } from '../server/worksheetRequest.js'
 import { checkWorksheetRateLimit, getRateLimitHeaders } from '../server/rateLimit.js'
+import { getSessionAccount } from '../server/accountStore.js'
+import { paymentsBypassed, validateGenerationReservation } from '../server/entitlementStore.js'
 
 const maxRequestBodyBytes = 16 * 1024
 const headers = {
@@ -94,6 +96,13 @@ async function handleRequest(request: Request) {
   }
 
   try {
+    if (!paymentsBypassed()) {
+      const account = await getSessionAccount(request)
+      const reservationId = request.headers.get('x-generation-reservation') ?? ''
+      if (!account || !await validateGenerationReservation(account.id, reservationId)) {
+        return respond({ error: 'Je gebruikstegoed is niet geldig of verlopen.' }, 402, rateLimitHeaders, 'payment_required')
+      }
+    }
     const { group, exercise, amount, layout, theme, difficulty } = validateWorksheetRequest(
       await parseRequestBody(request),
     )

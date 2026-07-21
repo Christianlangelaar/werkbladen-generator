@@ -988,12 +988,14 @@ async function getWorksheetQuestions(
   layout: WorksheetLayout,
   theme?: string,
   difficulty?: string,
+  generationReservation?: string,
 ) : Promise<GeneratedWorksheetContent> {
   try {
     const response = await fetch('/api/worksheet', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...(generationReservation ? { 'X-Generation-Reservation': generationReservation } : {}),
       },
       body: JSON.stringify({ group, exercise, amount, layout, theme, difficulty }),
     })
@@ -1195,6 +1197,7 @@ export async function generateWorksheetPdf(
   theme?: string,
   difficulty?: string,
   includeAnswerSheet = false,
+  generationReservation?: string,
 ): Promise<PdfGenerationResult> {
   if (exercise.startsWith('tellen-')) {
     layout = 'counting'
@@ -1227,7 +1230,7 @@ export async function generateWorksheetPdf(
     return createPdfResult(doc, getWorksheetFileName(group, exercise), 'local')
   }
 
-  const content = await getWorksheetQuestions(group, exercise, amount, layout, theme, difficulty)
+  const content = await getWorksheetQuestions(group, exercise, amount, layout, theme, difficulty, generationReservation)
 
   if (layout === 'compact-arithmetic') {
     addCompactArithmeticPages(
@@ -1348,6 +1351,7 @@ export async function generateWorkbookPdf(
   theme?: string,
   difficulty?: string,
   onProgress?: (progress: WorkbookGenerationProgress) => void,
+  generationReservation?: string,
 ): Promise<PdfGenerationResult> {
   const activeSections = sections.filter((section) => section.amount > 0)
 
@@ -1386,6 +1390,7 @@ export async function generateWorkbookPdf(
       request.layout,
       theme,
       difficulty,
+      generationReservation,
     )
 
     completedRequests += 1

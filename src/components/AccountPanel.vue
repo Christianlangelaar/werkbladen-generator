@@ -129,7 +129,7 @@ function formatDate(value: string) {
 
       <template v-else-if="!account">
         <p class="text-sm text-slate-600">
-          Ontvang een eenmalige code per e-mail. Er is geen wachtwoord nodig; hetzelfde account werkt op ieder apparaat.
+          Ontvang een eenmalige code per e-mail. Je account bewaart je gratis tegoed en credits en werkt op ieder apparaat.
         </p>
         <label class="block text-sm font-medium text-slate-700" for="account-email">E-mailadres</label>
         <input
@@ -175,7 +175,7 @@ function formatDate(value: string) {
 
       <template v-else>
         <div class="flex flex-wrap items-center justify-between gap-3 text-sm">
-          <p class="text-slate-600">Abonnement: <strong class="text-slate-900">Gratis</strong></p>
+          <p class="text-slate-600">Account: <strong class="text-slate-900">Gratis tegoed en credits</strong></p>
           <button type="button" class="font-medium text-emerald-800 underline" @click="signOut">Uitloggen</button>
         </div>
         <div>

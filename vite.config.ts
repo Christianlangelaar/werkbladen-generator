@@ -97,6 +97,20 @@ export default defineConfig({
           res.end()
         })
 
+        server.middlewares.use('/api/entitlements', (_req, res) => {
+          sendJson(res, 200, {
+            bypassed: true,
+            allowed: true,
+            reason: 'free',
+            freeGenerationsUsed: 0,
+            freeGenerationsRemaining: 3,
+            creditBalance: 0,
+            worksheetCreditCost: 1,
+            workbookCreditCost: 3,
+            paymentsConfigured: false,
+          })
+        })
+
         server.middlewares.use('/api/worksheet', async (req, res) => {
           res.setHeader('X-Request-ID', crypto.randomUUID())
           if (req.method !== 'POST') {

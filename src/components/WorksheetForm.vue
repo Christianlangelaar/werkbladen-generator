@@ -3,6 +3,12 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import WorksheetFeedback from './WorksheetFeedback.vue'
 import { track, type GenerationContext } from '../services/analytics'
 import { saveGeneratedWorksheet } from '../services/account'
+import {
+    authorizeGeneration,
+    finalizeGeneration,
+    startCreditCheckout,
+    type EntitlementSummary,
+} from '../services/entitlements'
 import type {
     EditableWorksheetItem,
     PdfGenerationResult,
@@ -94,6 +100,8 @@ const isGenerating = ref(false)
 const generationStartedAt = ref(0)
 const elapsedSeconds = ref(0)
 const lastGenerationContext = ref<GenerationContext | null>(null)
+const paymentWall = ref<EntitlementSummary | null>(null)
+const checkoutError = ref('')
 let generationTimer: number | undefined
 
 const fieldClass = 'w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-950 transition disabled:cursor-wait disabled:bg-slate-50 disabled:text-slate-500 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-100'
@@ -923,10 +931,29 @@ async function generatePdf() {
 
     generationError.value = ''
     generationNotice.value = ''
+    checkoutError.value = ''
     workbookProgress.value = null
     releasePreview()
+
+    let reservationId: string | undefined
+    try {
+        const authorization = await authorizeGeneration(mode.value)
+        if (!authorization.allowed) {
+            paymentWall.value = authorization
+            generationError.value = 'Je gratis generaties zijn gebruikt. Koop credits om verder te gaan.'
+            return
+        }
+        reservationId = authorization.reservationId
+    } catch (error) {
+        generationError.value = error instanceof Error
+            ? error.message
+            : 'Je gebruikstegoed kon niet worden gecontroleerd.'
+        return
+    }
+
     isGenerating.value = true
     startGenerationTimer()
+    let generationSucceeded = false
 
     const generationContext: GenerationContext = {
         outputType: mode.value,
@@ -951,6 +978,7 @@ async function generatePdf() {
                 (progress) => {
                     workbookProgress.value = progress
                 },
+                reservationId,
             )
             : generateWorksheetPdf(
                 group.value,
@@ -960,9 +988,11 @@ async function generatePdf() {
                 activeTheme.value || undefined,
                 normalizeDifficulty(difficulty.value) || undefined,
                 includeAnswerSheet.value,
+                reservationId,
             )
 
         const result = await workbookPdfPromise
+        generationSucceeded = true
 
         lastGenerationResult.value = result
         lastGenerationContext.value = generationContext
@@ -1001,8 +1031,18 @@ async function generatePdf() {
             ? error.message
             : 'Er ging iets mis met het maken van het werkblad.'
     } finally {
+        await finalizeGeneration(reservationId, generationSucceeded).catch(() => undefined)
         stopGenerationTimer()
         isGenerating.value = false
+    }
+}
+
+async function buyCredits() {
+    checkoutError.value = ''
+    try {
+        await startCreditCheckout()
+    } catch (error) {
+        checkoutError.value = error instanceof Error ? error.message : 'Betalen is tijdelijk niet beschikbaar.'
     }
 }
 
@@ -1782,6 +1822,32 @@ function trackPdfDownload() {
         >
             {{ generationNotice }}
         </p>
+
+        <section
+            v-if="paymentWall"
+            class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-slate-700"
+            aria-labelledby="payment-wall-title"
+        >
+            <h2 id="payment-wall-title" class="font-semibold text-emerald-950">Gratis tegoed en credits</h2>
+            <p class="mt-1">
+                {{ paymentWall.freeGenerationsRemaining }} van 3 gratis generaties over ·
+                {{ paymentWall.creditBalance }} credits beschikbaar.
+            </p>
+            <p class="mt-1 text-slate-600">
+                Een werkblad kost {{ paymentWall.worksheetCreditCost }} credit;
+                een werkboekje {{ paymentWall.workbookCreditCost }} credits.
+            </p>
+            <button
+                v-if="paymentWall.paymentsConfigured"
+                type="button"
+                class="mt-3 rounded-lg bg-emerald-700 px-4 py-2 font-semibold text-white hover:bg-emerald-800"
+                @click="buyCredits"
+            >
+                Koop credits met Stripe
+            </button>
+            <p v-else class="mt-2 text-slate-600">Creditbetalingen worden momenteel geconfigureerd.</p>
+            <p v-if="checkoutError" class="mt-2 text-red-700" role="alert">{{ checkoutError }}</p>
+        </section>
 
         <p
             v-if="generationError"

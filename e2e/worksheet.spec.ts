@@ -72,7 +72,7 @@ test('registreert en logt in met een eenmalige e-mailcode', async ({ page }) => 
   await page.getByLabel('Zescijferige code', { exact: true }).fill('123456')
   await page.getByRole('button', { name: 'Inloggen', exact: true }).click()
 
-  await expect(page.getByText('Abonnement:', { exact: false })).toBeVisible()
+  await expect(page.getByText('Account:', { exact: false })).toBeVisible()
   await expect(page.getByText('Nieuwe werkbladen en werkboekjes verschijnen hier automatisch.', { exact: true })).toBeVisible()
 })
 

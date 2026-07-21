@@ -160,5 +160,21 @@ export async function saveLibrary(accountId: string, items: LibraryItem[]) {
 
 export async function deleteAccountData(account: AccountRecord) {
   const emailHash = await sha256(account.email)
-  await redisCommand(['DEL', `account:${account.id}`, `account-library:${account.id}`, `account-email:${emailHash}`])
+  const storedPurchases = await redisCommand(['GET', `account-purchases:${account.id}`])
+  const purchaseKeys = typeof storedPurchases === 'string'
+    ? (JSON.parse(storedPurchases) as Array<{ provider?: string, transactionId?: string }>)
+        .flatMap((purchase) => purchase.provider && purchase.transactionId
+          ? [`purchase:${purchase.provider}:${purchase.transactionId}`]
+          : [])
+    : []
+  await redisCommand([
+    'DEL',
+    `account:${account.id}`,
+    `account-library:${account.id}`,
+    `account-entitlement:${account.id}`,
+    `account-entitlement-events:${account.id}`,
+    `account-purchases:${account.id}`,
+    `account-email:${emailHash}`,
+    ...purchaseKeys,
+  ])
 }
