@@ -14,7 +14,8 @@ function handleRequest(request: Request) {
   const readinessRequested = new URL(request.url).searchParams.get('readiness') === '1'
   const openaiConfigured = Boolean(process.env.OPENAI_API_KEY)
   const distributedRateLimitConfigured = Boolean(
-    process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN,
+    (process.env.UPSTASH_REDIS_REST_URL ?? process.env.KV_REST_API_URL) &&
+      (process.env.UPSTASH_REDIS_REST_TOKEN ?? process.env.KV_REST_API_TOKEN),
   )
   const ready = openaiConfigured
 

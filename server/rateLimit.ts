@@ -116,8 +116,8 @@ export const worksheetRateLimiter = createRateLimiter({
 
 export async function checkWorksheetRateLimit(identifier: string) {
   const limit = Number.isInteger(configuredLimit) && configuredLimit > 0 ? configuredLimit : 20
-  const redisUrl = process.env.UPSTASH_REDIS_REST_URL
-  const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN
+  const redisUrl = process.env.UPSTASH_REDIS_REST_URL ?? process.env.KV_REST_API_URL
+  const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN ?? process.env.KV_REST_API_TOKEN
 
   if (redisUrl && redisToken) {
     try {
