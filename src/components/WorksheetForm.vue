@@ -110,6 +110,7 @@ const themeOptions = [
     "Auto's",
     'Pokémon',
 ] as const
+const workbookCoverThemes = new Set(["Dino's", 'Ruimte', 'Voetbal'])
 const difficultyOptions = [
     'Makkelijker',
     'Uitdagender',
@@ -530,6 +531,11 @@ const supportsDifficulty = computed(() => isWorkbookMode.value || ![
     'woorden-overtrekken',
 ].includes(exercise.value) && !exercise.value.startsWith('tellen-'))
 const activeTheme = computed(() => supportsTheme.value ? normalizeTheme(theme.value) : '')
+const hasThemedWorkbookCover = computed(() => (
+    isWorkbookMode.value
+    && includeCoverPage.value
+    && workbookCoverThemes.has(activeTheme.value)
+))
 
 function addWorkbookItem() {
     const exerciseValue = workbookExerciseToAdd.value || availableWorkbookExercises.value[0]?.value
@@ -1524,7 +1530,10 @@ function trackPdfDownload() {
 
             <span>
                 <span class="block font-medium text-slate-800">Voorblad toevoegen</span>
-                <span class="mt-1 block text-slate-500">Met titel, groep, naam en datum.</span>
+                <span class="mt-1 block text-slate-500">
+                    Met titel, groep, naam en datum.
+                    <template v-if="hasThemedWorkbookCover"> Inclusief illustratie in het gekozen thema.</template>
+                </span>
             </span>
         </label>
 

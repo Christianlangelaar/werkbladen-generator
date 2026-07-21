@@ -154,6 +154,20 @@ describe('WorksheetForm', () => {
     expect(mockedGenerateWorksheetPdf).not.toHaveBeenCalled()
   })
 
+  it('toont bij de drie MVP-thema’s dat het voorblad een illustratie krijgt', async () => {
+    const wrapper = mount(WorksheetForm)
+
+    await wrapper.get('button[aria-pressed="false"]').trigger('click')
+    await wrapper.get('#theme').setValue('Ruimte')
+    const coverCheckbox = wrapper.findAll('input[type="checkbox"]')[0]
+    await coverCheckbox?.setValue(true)
+
+    expect(wrapper.text()).toContain('Inclusief illustratie in het gekozen thema.')
+
+    await wrapper.get('#theme').setValue('Vlinders')
+    expect(wrapper.text()).not.toContain('Inclusief illustratie in het gekozen thema.')
+  })
+
   it('stelt een werkboek samen met eigen aantallen en volgorde', async () => {
     const wrapper = mount(WorksheetForm)
 

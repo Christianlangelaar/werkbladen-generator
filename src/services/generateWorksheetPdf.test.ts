@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { generateWorkbookPdf, generateWorksheetPdf } from './generateWorksheetPdf'
+import { generateWorkbookPdf, generateWorksheetPdf, resolveWorkbookCoverTheme } from './generateWorksheetPdf'
 
 function worksheetResponse(amount: number) {
   return new Response(JSON.stringify({
@@ -18,6 +18,26 @@ describe('PDF page regressions', () => {
       configurable: true,
       value: vi.fn(() => 'blob:pdf-test'),
     })
+  })
+
+  it('herkent alleen de drie herbruikbare voorbladthema’s', () => {
+    expect(resolveWorkbookCoverTheme("Dino's")).toBe('dinosaurs')
+    expect(resolveWorkbookCoverTheme('ruimte')).toBe('space')
+    expect(resolveWorkbookCoverTheme('Voetbal')).toBe('football')
+    expect(resolveWorkbookCoverTheme('Vlinders')).toBeUndefined()
+    expect(resolveWorkbookCoverTheme()).toBeUndefined()
+  })
+
+  it.each(["Dino's", 'Ruimte', 'Voetbal'])('maakt een printbaar werkboekvoorblad voor %s', async (theme) => {
+    const result = await generateWorkbookPdf(
+      '4',
+      [{ exercise: 'optellen', amount: 20 }],
+      true,
+      false,
+      theme,
+    )
+
+    expect(result.pageCount).toBe(2)
   })
 
   it('maakt één telpagina plus één antwoordenpagina', async () => {

@@ -120,6 +120,20 @@ export type WorkbookSection = {
   amount: number
 }
 
+export type WorkbookCoverTheme = 'dinosaurs' | 'space' | 'football'
+
+export function resolveWorkbookCoverTheme(theme?: string): WorkbookCoverTheme | undefined {
+  const normalizedTheme = theme?.trim().toLocaleLowerCase('nl')
+
+  if (normalizedTheme === "dino's" || normalizedTheme === 'dinos' || normalizedTheme === 'dinosaurussen') {
+    return 'dinosaurs'
+  }
+  if (normalizedTheme === 'ruimte') return 'space'
+  if (normalizedTheme === 'voetbal') return 'football'
+
+  return undefined
+}
+
 const pageMargin = 20
 const pageWidth = 210
 const pageHeight = 297
@@ -368,9 +382,67 @@ function addFooter(doc: jsPDF, group: string, exercise: string) {
   addFooterTitle(doc, getWorksheetTitle(group, exercise))
 }
 
+function drawDinosaurCover(doc: jsPDF) {
+  doc.setDrawColor(4, 120, 87)
+  doc.setFillColor(209, 250, 229)
+  doc.ellipse(168, 65, 24, 15, 'FD')
+  doc.ellipse(187, 54, 10, 9, 'FD')
+  doc.setLineWidth(1.2)
+  doc.line(147, 69, 135, 78)
+  doc.line(160, 77, 156, 89)
+  doc.line(178, 77, 183, 89)
+  doc.circle(190, 52, 1, 'F')
+  doc.setFillColor(4, 120, 87)
+  doc.triangle(152, 53, 158, 42, 163, 55, 'F')
+  doc.triangle(162, 50, 169, 39, 174, 53, 'F')
+  doc.triangle(173, 51, 181, 42, 184, 57, 'F')
+}
+
+function drawSpaceCover(doc: jsPDF) {
+  doc.setDrawColor(30, 64, 175)
+  doc.setFillColor(219, 234, 254)
+  doc.ellipse(170, 62, 13, 24, 'FD')
+  doc.setFillColor(255, 255, 255)
+  doc.circle(170, 56, 5, 'FD')
+  doc.setFillColor(30, 64, 175)
+  doc.triangle(157, 71, 145, 82, 160, 78, 'F')
+  doc.triangle(183, 71, 195, 82, 180, 78, 'F')
+  doc.setFillColor(251, 191, 36)
+  doc.triangle(164, 84, 170, 99, 176, 84, 'F')
+
+  for (const [x, y] of [[139, 48], [196, 42], [198, 91], [144, 98]] as const) {
+    doc.line(x - 3, y, x + 3, y)
+    doc.line(x, y - 3, x, y + 3)
+  }
+}
+
+function drawFootballCover(doc: jsPDF) {
+  doc.setDrawColor(5, 150, 105)
+  doc.setFillColor(255, 255, 255)
+  doc.circle(170, 66, 24, 'FD')
+  doc.setFillColor(15, 23, 42)
+  doc.circle(170, 66, 6, 'F')
+
+  for (const [x, y] of [[170, 45], [190, 59], [182, 84], [158, 84], [150, 59]] as const) {
+    doc.circle(x, y, 4, 'F')
+    doc.line(170, 66, x, y)
+  }
+}
+
+function drawWorkbookCoverTheme(doc: jsPDF, theme?: string) {
+  const coverTheme = resolveWorkbookCoverTheme(theme)
+
+  if (coverTheme === 'dinosaurs') drawDinosaurCover(doc)
+  if (coverTheme === 'space') drawSpaceCover(doc)
+  if (coverTheme === 'football') drawFootballCover(doc)
+
+  return coverTheme
+}
+
 function addWorkbookCoverPage(doc: jsPDF, group: string, sections: WorkbookSection[], theme?: string) {
   const exerciseNames = [...new Set(sections.map((section) => formatExerciseName(section.exercise)))]
   const exerciseText = exerciseNames.join(', ')
+  const coverTheme = drawWorkbookCoverTheme(doc, theme)
 
   doc.setDrawColor(5, 150, 105)
   doc.setFillColor(5, 150, 105)
@@ -390,6 +462,12 @@ function addWorkbookCoverPage(doc: jsPDF, group: string, sections: WorkbookSecti
     doc.setFontSize(13)
     doc.setTextColor(71, 85, 105)
     doc.text(`Thema: ${theme}`, pageMargin + 13, 78)
+  }
+
+  if (coverTheme) {
+    doc.setDrawColor(167, 243, 208)
+    doc.setLineWidth(0.8)
+    doc.roundedRect(pageMargin - 6, 20, pageWidth - ((pageMargin - 6) * 2), 235, 8, 8, 'S')
   }
 
   if (isButterflyTheme(group, theme)) {
