@@ -147,6 +147,7 @@ async function sendFeedbackEmail(feedback: Exclude<ReturnType<typeof validatePro
   const apiKey = process.env.RESEND_API_KEY
   const to = process.env.FEEDBACK_EMAIL_TO
   const from = process.env.FEEDBACK_EMAIL_FROM
+  const defaultReplyTo = process.env.FEEDBACK_EMAIL_REPLY_TO
 
   if (!apiKey || !to || !from) {
     return { sent: false, reason: 'missing_config' as const }
@@ -164,7 +165,7 @@ async function sendFeedbackEmail(feedback: Exclude<ReturnType<typeof validatePro
       to,
       subject: `[Werkbladen Generator] ${feedback.typeLabel}`,
       text: createFeedbackEmailText(feedback),
-      reply_to: feedback.email || undefined,
+      reply_to: feedback.email || defaultReplyTo || undefined,
       tags: [
         { name: 'source', value: 'feedback_form' },
         { name: 'type', value: feedback.type },

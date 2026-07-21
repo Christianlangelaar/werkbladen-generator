@@ -6,6 +6,7 @@ const originalEnv = {
   RESEND_API_KEY: process.env.RESEND_API_KEY,
   FEEDBACK_EMAIL_TO: process.env.FEEDBACK_EMAIL_TO,
   FEEDBACK_EMAIL_FROM: process.env.FEEDBACK_EMAIL_FROM,
+  FEEDBACK_EMAIL_REPLY_TO: process.env.FEEDBACK_EMAIL_REPLY_TO,
 }
 const validFeedback = {
   requestId: '76cded37-9793-4c5d-a7eb-df681a30385d',
@@ -54,6 +55,7 @@ describe('worksheet feedback endpoint', () => {
     process.env.RESEND_API_KEY = 're_test'
     process.env.FEEDBACK_EMAIL_TO = 'feedback@example.com'
     process.env.FEEDBACK_EMAIL_FROM = 'Werkbladen Generator <feedback@example.com>'
+    process.env.FEEDBACK_EMAIL_REPLY_TO = 'beheerder@example.com'
   })
 
   afterEach(() => {
@@ -61,6 +63,7 @@ describe('worksheet feedback endpoint', () => {
     restoreEnv('RESEND_API_KEY')
     restoreEnv('FEEDBACK_EMAIL_TO')
     restoreEnv('FEEDBACK_EMAIL_FROM')
+    restoreEnv('FEEDBACK_EMAIL_REPLY_TO')
   })
 
   it('accepteert alleen metadata uit de vaste categorieën', async () => {
@@ -108,6 +111,21 @@ describe('worksheet feedback endpoint', () => {
     })
     expect(resendBody.text).toContain('De knop werkt niet op mobiel.')
     expect(resendBody.text).toContain('Route: /?groep=4')
+  })
+
+  it('gebruikt het geconfigureerde antwoordadres als de gebruiker geen e-mailadres opgeeft', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: 'email_123' }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const response = await handler.fetch(request({
+      ...validProductFeedback,
+      email: '',
+    }))
+
+    expect(response.status).toBe(202)
+    expect(fetchMock).toHaveBeenCalledWith('https://api.resend.com/emails', expect.objectContaining({
+      body: expect.stringContaining('"reply_to":"beheerder@example.com"'),
+    }))
   })
 
   it('weigert productfeedback wanneer e-mail nog niet is geconfigureerd', async () => {
