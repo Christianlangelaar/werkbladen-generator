@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import WorksheetFeedback from './WorksheetFeedback.vue'
 import { track, type GenerationContext } from '../services/analytics'
+import { saveGeneratedWorksheet } from '../services/account'
 import type {
     EditableWorksheetItem,
     PdfGenerationResult,
@@ -895,7 +896,19 @@ async function regenerateEditableItem(index: number) {
     }
 }
 
-onBeforeUnmount(releasePreview)
+function applyLibrarySettings(event: Event) {
+    const settings = (event as CustomEvent<unknown>).detail
+    if (!settings || typeof settings !== 'object' || Array.isArray(settings)) return
+    releasePreview()
+    applySettings(settings as StoredWorksheetSettings)
+    generationNotice.value = 'De opgeslagen instellingen zijn toegepast.'
+}
+
+onMounted(() => window.addEventListener('worksheet-library-apply', applyLibrarySettings))
+onBeforeUnmount(() => {
+    releasePreview()
+    window.removeEventListener('worksheet-library-apply', applyLibrarySettings)
+})
 
 async function generatePdf() {
     if (!validateAmount()) {
@@ -951,6 +964,28 @@ async function generatePdf() {
         hasUnappliedEdits.value = false
         isPreviewVisible.value = true
         generationNotice.value = result.warning ?? ''
+        try {
+            const exercises = isWorkbookMode.value
+                ? [...new Set(workbookSections.value.map((section) => section.exercise))]
+                : [exercise.value]
+            const saved = await saveGeneratedWorksheet({
+                title: isWorkbookMode.value
+                    ? `Werkboek groep ${group.value}`
+                    : `${exerciseLabelByValue.value.get(exercise.value) ?? 'Werkblad'} · groep ${group.value}`,
+                kind: mode.value,
+                group: group.value,
+                exercises,
+                settings: currentSettings(),
+                items: result.editableItems ?? [],
+                pageCount: result.pageCount,
+            })
+            if (saved) {
+                generationNotice.value = [generationNotice.value, 'Opgeslagen in je account.'].filter(Boolean).join(' ')
+                window.dispatchEvent(new Event('worksheet-library-updated'))
+            }
+        } catch {
+            // Accounts zijn optioneel; een opslagstoring mag de lokale PDF-flow niet beïnvloeden.
+        }
         track('generation_succeeded', { ...generationContext, source: result.source })
         await nextTick()
         generationResultTitle.value?.focus()
