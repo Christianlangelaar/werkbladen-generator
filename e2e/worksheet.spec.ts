@@ -25,9 +25,49 @@ test('legt privacy, tijdelijke IP-verwerking en externe verwerkers uit', async (
   await expect(page.getByRole('heading', { name: 'IP-adres en misbruikpreventie', exact: true })).toBeVisible()
   await expect(page.getByText('Het IP-adres van een verzoek wordt tijdelijk gebruikt om het aantal aanvragen per minuut te beperken.', { exact: false })).toBeVisible()
   await expect(page.getByText('OpenAI verwerkt deze gegevens om de gevraagde opdrachten te genereren.', { exact: false })).toBeVisible()
-  await expect(page.getByText('Upstash wordt alleen gebruikt voor een tijdelijke, gehashte rate-limitteller', { exact: false })).toBeVisible()
+  await expect(page.getByText('Er worden geen wachtwoorden bewaard.', { exact: false })).toBeVisible()
+  await expect(page.getByText('Upstash wordt gebruikt voor tijdelijke rate-limittellers', { exact: false })).toBeVisible()
   await expect(page.getByText('Ontwikkel studio is verantwoordelijk voor deze dienst.', { exact: false })).toBeVisible()
   await expect(page.getByRole('link', { name: 'ontwikkelstudio@gmail.com', exact: true })).toHaveAttribute('href', 'mailto:ontwikkelstudio@gmail.com')
+})
+
+test('registreert en logt in met een eenmalige e-mailcode', async ({ page }) => {
+  let signedIn = false
+  await page.route('**/api/auth', async (route) => {
+    const request = route.request()
+    if (request.method() === 'GET') {
+      await route.fulfill({
+        status: signedIn ? 200 : 401,
+        contentType: 'application/json',
+        body: JSON.stringify(signedIn
+          ? { account: { id: 'account-1', email: 'ouder@example.com', plan: 'free', purchases: [], createdAt: new Date().toISOString() }, library: [] }
+          : { error: 'Niet ingelogd.' }),
+      })
+      return
+    }
+    const payload = request.postDataJSON() as { action?: string }
+    if (payload.action === 'request-code') {
+      await route.fulfill({ status: 202, contentType: 'application/json', body: JSON.stringify({ ok: true }) })
+      return
+    }
+    signedIn = true
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ account: { id: 'account-1', email: 'ouder@example.com', plan: 'free', purchases: [], createdAt: new Date().toISOString() }, library: [] }),
+    })
+  })
+  await page.reload()
+
+  await page.getByRole('button', { name: 'Inloggen of registreren', exact: true }).click()
+  await page.getByLabel('E-mailadres', { exact: true }).fill('ouder@example.com')
+  await page.getByRole('button', { name: 'Stuur inlogcode', exact: true }).click()
+  await expect(page.getByRole('status')).toContainText('zescijferige code')
+  await page.getByLabel('Zescijferige code', { exact: true }).fill('123456')
+  await page.getByRole('button', { name: 'Inloggen', exact: true }).click()
+
+  await expect(page.getByText('Abonnement:', { exact: false })).toBeVisible()
+  await expect(page.getByText('Nieuwe werkbladen en werkboekjes verschijnen hier automatisch.', { exact: true })).toBeVisible()
 })
 
 test('verstuurt algemene feedback vanuit de footer', async ({ page }) => {
@@ -181,6 +221,8 @@ test('voldoet in beide modi aan de geautomatiseerde toegankelijkheidscontrole', 
 
 test('kan de hoofdflow volledig met het toetsenbord bedienen', async ({ page, browserName }) => {
   const tabKey = browserName === 'webkit' ? 'Alt+Tab' : 'Tab'
+  await page.keyboard.press(tabKey)
+  await expect(page.getByRole('button', { name: 'Inloggen of registreren', exact: true })).toBeFocused()
   await page.keyboard.press(tabKey)
   await expect(page.locator('summary')).toBeFocused()
   await page.keyboard.press(tabKey)

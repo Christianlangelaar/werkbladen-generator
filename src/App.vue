@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import AnalyticsConsent from './components/AnalyticsConsent.vue'
+import AccountPanel from './components/AccountPanel.vue'
 import ProductFeedback from './components/ProductFeedback.vue'
 import WorksheetForm from './components/WorksheetForm.vue'
 import { getAnalyticsConsent, setAnalyticsConsent } from './services/analyticsConsent'
@@ -44,6 +45,8 @@ function declineAnalytics() {
       <p class="mt-2 text-slate-500">
         Maak binnen enkele seconden een werkblad voor je kind.
       </p>
+
+      <AccountPanel class="mt-6" />
 
       <WorksheetForm />
 
