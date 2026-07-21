@@ -100,6 +100,7 @@ const selectClass = `${fieldClass} appearance-none pr-12`
 const themeOptions = [
     'Voetbal',
     'Paarden',
+    'Vlinders',
     'Dieren',
     "Dino's",
     'Minecraft',
@@ -514,7 +515,11 @@ const amountHelpText = computed(() => {
 
     return `${questionsPerPage.value} ${assignmentLabel} per pagina. ${assignmentAmount.value} ${assignmentLabel} is ongeveer ${estimatedPageCount.value} ${pageLabel}.`
 })
-const supportsTheme = computed(() => isWorkbookMode.value || themeSupportedExercises.has(exercise.value))
+const supportsTheme = computed(() => (
+    isWorkbookMode.value
+    || group.value === '2'
+    || themeSupportedExercises.has(exercise.value)
+))
 const supportsDifficulty = computed(() => isWorkbookMode.value || ![
     'cijfers-overtrekken',
     'lijnen-overtrekken',

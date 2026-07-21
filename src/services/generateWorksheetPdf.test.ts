@@ -32,6 +32,24 @@ describe('PDF page regressions', () => {
     expect(result).toMatchObject({ source: 'local', pageCount: 2 })
   })
 
+  it('maakt lokale vlinderwerkbladen en een thematisch werkboekje voor groep 2', async () => {
+    const worksheet = await generateWorksheetPdf('2', 'spiegelen', 2, 'default', 'Vlinders')
+    const workbook = await generateWorkbookPdf(
+      '2',
+      [
+        { exercise: 'tellen-vormen', amount: 8 },
+        { exercise: 'raamfiguren', amount: 3 },
+        { exercise: 'woorden-overtrekken', amount: 6 },
+      ],
+      true,
+      true,
+      'Vlinders',
+    )
+
+    expect(worksheet).toMatchObject({ source: 'local', pageCount: 1 })
+    expect(workbook).toMatchObject({ source: 'local', pageCount: 5 })
+  })
+
   it('bewaakt voorblad, gemengde werkbladen en antwoorden in één werkboek', async () => {
     vi.stubGlobal('fetch', vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body)) as { amount: number }

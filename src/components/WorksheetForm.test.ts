@@ -65,6 +65,26 @@ describe('WorksheetForm', () => {
     expect(wrapper.get('#exercise').text()).not.toContain('Tafels')
   })
 
+  it('biedt het vlinderthema aan voor groep 2 en gebruikt het bij lokale werkbladen', async () => {
+    const wrapper = mount(WorksheetForm)
+
+    await wrapper.get('#group').setValue('2')
+    expect(wrapper.get('#theme').text()).toContain('Vlinders')
+    await wrapper.get('#theme').setValue('Vlinders')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(mockedGenerateWorksheetPdf).toHaveBeenCalledWith(
+      '2',
+      'tellen-dobbelsteen',
+      10,
+      'default',
+      'Vlinders',
+      undefined,
+      false,
+    )
+  })
+
   it('bewaart gewijzigde instellingen in localStorage', async () => {
     const wrapper = mount(WorksheetForm)
 

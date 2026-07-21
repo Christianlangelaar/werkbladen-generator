@@ -392,6 +392,11 @@ function addWorkbookCoverPage(doc: jsPDF, group: string, sections: WorkbookSecti
     doc.text(`Thema: ${theme}`, pageMargin + 13, 78)
   }
 
+  if (isButterflyTheme(group, theme)) {
+    drawButterfly(doc, 164, 67, 2.1, false, 0)
+    drawButterfly(doc, 188, 89, 0.75, false, 1)
+  }
+
   doc.setDrawColor(167, 243, 208)
   doc.setFillColor(255, 255, 255)
   doc.roundedRect(pageMargin, 104, pageWidth - (pageMargin * 2), 54, 4, 4, 'FD')
@@ -578,7 +583,42 @@ function drawDie(doc: jsPDF, x: number, y: number, value: number) {
   }
 }
 
-function drawPictureIcon(doc: jsPDF, x: number, y: number, index: number) {
+function isButterflyTheme(group: string, theme?: string) {
+  return group === '2' && theme === 'Vlinders'
+}
+
+function drawButterfly(doc: jsPDF, x: number, y: number, scale = 1, filled = false, variant = 0) {
+  const style = filled ? 'F' : 'S'
+  const wingWidth = (variant % 2 === 0 ? 5 : 4.4) * scale
+  const upperWingHeight = (variant % 3 === 0 ? 6.2 : 5.3) * scale
+  const lowerWingHeight = (variant % 2 === 0 ? 4.2 : 5) * scale
+  doc.setDrawColor(15, 23, 42)
+  doc.setFillColor(15, 23, 42)
+  doc.setLineWidth(Math.max(0.35, 0.65 * scale))
+  doc.ellipse(x - 4.2 * scale, y - 3.2 * scale, wingWidth, upperWingHeight, style)
+  doc.ellipse(x + 4.2 * scale, y - 3.2 * scale, wingWidth, upperWingHeight, style)
+  doc.ellipse(x - 3.2 * scale, y + 3.4 * scale, 3.8 * scale, lowerWingHeight, style)
+  doc.ellipse(x + 3.2 * scale, y + 3.4 * scale, 3.8 * scale, lowerWingHeight, style)
+  doc.ellipse(x, y, 1.15 * scale, 6.3 * scale, style)
+  doc.line(x - 0.4 * scale, y - 5.8 * scale, x - 3.2 * scale, y - 9 * scale)
+  doc.line(x + 0.4 * scale, y - 5.8 * scale, x + 3.2 * scale, y - 9 * scale)
+  if (!filled && scale >= 0.7) {
+    doc.circle(x - 4.5 * scale, y - 3.5 * scale, 1.1 * scale, 'S')
+    doc.circle(x + 4.5 * scale, y - 3.5 * scale, 1.1 * scale, 'S')
+  }
+}
+
+function drawButterflyPageDecoration(doc: jsPDF, group: string, theme?: string) {
+  if (!isButterflyTheme(group, theme)) return
+  drawButterfly(doc, 178, 31, 0.65, false, 0)
+  drawButterfly(doc, 191, 38, 0.42, false, 1)
+}
+
+function drawPictureIcon(doc: jsPDF, x: number, y: number, index: number, butterflyTheme = false) {
+  if (butterflyTheme) {
+    drawButterfly(doc, x, y, 0.38, false, index)
+    return
+  }
   doc.setDrawColor(15, 23, 42)
   doc.setFillColor(15, 23, 42)
   if (index % 3 === 0) {
@@ -590,7 +630,7 @@ function drawPictureIcon(doc: jsPDF, x: number, y: number, index: number) {
   }
 }
 
-function drawTracingPattern(doc: jsPDF, pattern: number, y: number) {
+function drawTracingPattern(doc: jsPDF, pattern: number, y: number, butterflyTheme = false) {
   doc.setDrawColor(30, 41, 59)
   doc.setLineWidth(0.7)
   doc.setLineDashPattern([2.2, 2.2], 0)
@@ -612,6 +652,7 @@ function drawTracingPattern(doc: jsPDF, pattern: number, y: number) {
     doc.line(previous[0], previous[1], current[0], current[1])
   }
   doc.setLineDashPattern([], 0)
+  if (butterflyTheme) drawButterfly(doc, 190, points.at(-1)?.[1] ?? y, 0.52, false, pattern)
 }
 
 function drawDotGrid(doc: jsPDF, x: number, y: number, size: number) {
@@ -621,8 +662,11 @@ function drawDotGrid(doc: jsPDF, x: number, y: number, size: number) {
   }
 }
 
-function drawGridFigure(doc: jsPDF, x: number, y: number, size: number, variant: number) {
-  const patterns = [
+function drawGridFigure(doc: jsPDF, x: number, y: number, size: number, variant: number, butterflyTheme = false) {
+  const patterns = butterflyTheme ? [
+    [[0, 2], [1, 0], [2, 2], [3, 0], [4, 2], [3, 4], [2, 2], [1, 4], [0, 2]],
+    [[0, 1], [1, 0], [2, 2], [3, 0], [4, 1], [3, 3], [2, 2], [1, 3], [0, 1]],
+  ] : [
     [[0, 4], [2, 1], [4, 4], [3, 4], [3, 3], [1, 3], [1, 4], [0, 4]],
     [[0, 2], [1, 0], [2, 2], [3, 0], [4, 2], [3, 4], [2, 2], [1, 4], [0, 2]],
     [[0, 1], [1, 0], [4, 0], [4, 4], [1, 4], [0, 3], [0, 1], [2, 3], [4, 3]],
@@ -641,7 +685,11 @@ function drawGridFigure(doc: jsPDF, x: number, y: number, size: number, variant:
   }
 }
 
-function drawSimpleShape(doc: jsPDF, x: number, y: number, variant: number, filled = false) {
+function drawSimpleShape(doc: jsPDF, x: number, y: number, variant: number, filled = false, butterflyTheme = false) {
+  if (butterflyTheme) {
+    drawButterfly(doc, x, y, 0.8 + (variant % 3) * 0.08, filled, variant)
+    return
+  }
   const style = filled ? 'F' : 'S'
   doc.setDrawColor(15, 23, 42)
   doc.setFillColor(15, 23, 42)
@@ -684,13 +732,19 @@ function drawLeftSemicircle(doc: jsPDF, centerX: number, centerY: number, radius
   }
 }
 
-function drawHalfPicture(doc: jsPDF, centerX: number, centerY: number, variant: number) {
+function drawHalfPicture(doc: jsPDF, centerX: number, centerY: number, variant: number, butterflyTheme = false) {
   doc.setDrawColor(15, 23, 42)
   doc.setLineWidth(1.3)
   doc.setLineDashPattern([1.5, 1.5], 0)
   doc.line(centerX, centerY - 42, centerX, centerY + 42)
   doc.setLineDashPattern([], 0)
-  if (variant % 2 === 0) {
+  if (butterflyTheme) {
+    doc.ellipse(centerX - 14, centerY - 13, 14, 21, 'S')
+    doc.ellipse(centerX - 12, centerY + 17, 12, 15, 'S')
+    doc.ellipse(centerX - 1, centerY, 2, 25, 'S')
+    doc.circle(centerX - 15, centerY - 14, 3, 'S')
+    doc.line(centerX - 1, centerY - 23, centerX - 10, centerY - 36)
+  } else if (variant % 2 === 0) {
     drawLeftSemicircle(doc, centerX, centerY, 25)
     doc.line(centerX - 25, centerY, centerX - 38, centerY - 10)
     doc.line(centerX - 25, centerY, centerX - 38, centerY + 10)
@@ -703,31 +757,35 @@ function drawHalfPicture(doc: jsPDF, centerX: number, centerY: number, variant: 
   }
 }
 
-function addEarlyLearningPages(doc: jsPDF, group: string, exercise: string, amount: number, startOnNewPage = false) {
+function addEarlyLearningPages(doc: jsPDF, group: string, exercise: string, amount: number, startOnNewPage = false, theme?: string) {
   const perPage = exercise === 'cijfers-overtrekken' && Number(group) >= 2
     ? 10
     : getDefaultQuestionsPerPage(exercise)
   const pageCount = Math.ceil(amount / perPage)
-  const words = ['beer', 'fiets', 'vis', 'maan', 'roos', 'boom', 'kat', 'zon']
+  const butterflyTheme = isButterflyTheme(group, theme)
+  const words = butterflyTheme
+    ? ['vlinder', 'rups', 'bloem', 'vleugel', 'tuin', 'blad', 'pop', 'nectar']
+    : ['beer', 'fiets', 'vis', 'maan', 'roos', 'boom', 'kat', 'zon']
   for (let page = 0; page < pageCount; page += 1) {
     if (startOnNewPage || page > 0) doc.addPage()
     addHeader(doc, group, exercise)
+    drawButterflyPageDecoration(doc, group, theme)
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(11)
     doc.setTextColor(71, 85, 105)
     const instructions: Record<string, string> = {
       'cijfers-overtrekken': 'Trek de cijfers over.',
-      'lijnen-overtrekken': 'Trek de lijnen over.',
-      raamfiguren: 'Teken de figuur na op het lege stippenraam.',
+      'lijnen-overtrekken': butterflyTheme ? 'Volg de vliegroutes van de vlinders.' : 'Trek de lijnen over.',
+      raamfiguren: butterflyTheme ? 'Teken de vlinder na op het lege stippenraam en kleur hem in.' : 'Teken de figuur na op het lege stippenraam.',
       schaduwen: 'Trek een lijn van elke vorm naar de juiste schaduw.',
-      spiegelen: 'Teken de andere helft van de figuur.',
-      'woorden-overtrekken': 'Trek de woorden over en schrijf ze daarna zelf.',
+      spiegelen: butterflyTheme ? 'Teken de andere helft van de vlinder en kleur hem in.' : 'Teken de andere helft van de figuur.',
+      'woorden-overtrekken': butterflyTheme ? 'Trek de vlinderwoorden over en schrijf ze daarna zelf.' : 'Trek de woorden over en schrijf ze daarna zelf.',
     }
     doc.text(instructions[exercise] ?? '', pageMargin, 44)
     const remaining = Math.min(perPage, amount - page * perPage)
     for (let row = 0; row < remaining; row += 1) {
       const absoluteIndex = page * perPage + row
-      if (exercise === 'lijnen-overtrekken') drawTracingPattern(doc, row, 64 + row * 42)
+      if (exercise === 'lijnen-overtrekken') drawTracingPattern(doc, row, 64 + row * 42, butterflyTheme)
       if (exercise === 'cijfers-overtrekken') {
         const number = (absoluteIndex % (Number(group) === 1 ? 5 : 10)) + 1
         const rowHeight = perPage === 10 ? 21 : 42
@@ -744,12 +802,12 @@ function addEarlyLearningPages(doc: jsPDF, group: string, exercise: string, amou
         doc.line(105, y + 2, 185, y + 2); doc.setLineDashPattern([1, 1.5], 0); doc.line(105, y - 8, 185, y - 8); doc.setLineDashPattern([], 0)
       }
       if (exercise === 'raamfiguren') {
-        const y = 64 + row * 68; drawDotGrid(doc, 28, y, 9); drawGridFigure(doc, 28, y, 9, absoluteIndex); drawDotGrid(doc, 125, y, 9)
+        const y = 64 + row * 68; drawDotGrid(doc, 28, y, 9); drawGridFigure(doc, 28, y, 9, absoluteIndex, butterflyTheme); drawDotGrid(doc, 125, y, 9)
       }
-      if (exercise === 'spiegelen') drawHalfPicture(doc, 105, 98 + row * 105, absoluteIndex)
+      if (exercise === 'spiegelen') drawHalfPicture(doc, 105, 98 + row * 105, absoluteIndex, butterflyTheme)
       if (exercise === 'schaduwen') {
         const shadowOrder = [2, 5, 0, 4, 1, 3]
-        const y = 65 + row * 33; drawSimpleShape(doc, 40, y, row); drawSimpleShape(doc, 165, y, shadowOrder[row] ?? row, true)
+        const y = 65 + row * 33; drawSimpleShape(doc, 40, y, row, false, butterflyTheme); drawSimpleShape(doc, 165, y, shadowOrder[row] ?? row, true, butterflyTheme)
         doc.setFillColor(100, 116, 139); doc.circle(62, y, 1.5, 'F'); doc.circle(143, y, 1.5, 'F')
       }
     }
@@ -757,11 +815,12 @@ function addEarlyLearningPages(doc: jsPDF, group: string, exercise: string, amou
   }
 }
 
-function addCountingPages(doc: jsPDF, group: string, exercise: string, amount: number) {
+function addCountingPages(doc: jsPDF, group: string, exercise: string, amount: number, theme?: string) {
   const isNumberMode = exercise === 'tellen-cijfers'
   const isPictureMode = exercise === 'tellen-vormen'
   const isTracingMode = exercise === 'lijnen-overtrekken'
   const maxValue = Number(group) <= 1 ? 5 : 10
+  const butterflyTheme = isButterflyTheme(group, theme)
   const circleCount = maxValue
   const rowsPerPage = isNumberMode ? 10 : isPictureMode ? 8 : isTracingMode ? 5 : countingQuestionsPerPage
   const pageCount = Math.ceil(amount / rowsPerPage)
@@ -770,18 +829,26 @@ function addCountingPages(doc: jsPDF, group: string, exercise: string, amount: n
   for (let pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
     if (pageIndex > 0) doc.addPage()
     addHeader(doc, group, exercise)
+    drawButterflyPageDecoration(doc, group, theme)
 
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(11)
     doc.setTextColor(71, 85, 105)
-    doc.text(isTracingMode ? 'Trek de lijnen over.' : isPictureMode ? 'Tel de vormen en omcirkel het juiste cijfer.' : isNumberMode ? 'Kleur evenveel rondjes als het cijfer.' : 'Hoeveel ogen staan er op de dobbelsteen? Kleur het juiste aantal rondjes.', pageMargin, 44)
+    const instruction = isTracingMode
+      ? (butterflyTheme ? 'Volg de vliegroutes van de vlinders.' : 'Trek de lijnen over.')
+      : isPictureMode
+        ? (butterflyTheme ? 'Tel de vlinders, kleur ze in en omcirkel het juiste cijfer.' : 'Tel de vormen en omcirkel het juiste cijfer.')
+        : isNumberMode
+          ? 'Kleur evenveel rondjes als het cijfer.'
+          : 'Hoeveel ogen staan er op de dobbelsteen? Kleur het juiste aantal rondjes.'
+    doc.text(instruction, pageMargin, 44)
 
     const values = maxValue <= 5 ? [3, 1, 4, 5, 2] : [3, 1, 6, 4, 5, 2]
     const remaining = Math.min(rowsPerPage, amount - (pageIndex * rowsPerPage))
     for (let row = 0; row < remaining; row += 1) {
       const y = rowYs[row] ?? 53
       if (isTracingMode) {
-        drawTracingPattern(doc, row, y + 12)
+        drawTracingPattern(doc, row, y + 12, butterflyTheme)
         continue
       }
       const value = isNumberMode
@@ -794,7 +861,7 @@ function addCountingPages(doc: jsPDF, group: string, exercise: string, amount: n
         doc.setLineWidth(0.45)
         doc.rect(20, y + 1, 52, 25, 'S')
         for (let icon = 0; icon < value; icon += 1) {
-          drawPictureIcon(doc, 27 + ((icon % 4) * 12), y + 6 + (Math.floor(icon / 4) * 8.5), row)
+          drawPictureIcon(doc, 27 + ((icon % 4) * 12), y + 6 + (Math.floor(icon / 4) * 8.5), row, butterflyTheme)
         }
         doc.setFontSize(13)
         doc.setTextColor(71, 85, 105)
@@ -1065,13 +1132,13 @@ export async function generateWorksheetPdf(
   const doc = new jsPDF()
 
   if (earlyLearningExercises.has(exercise)) {
-    addEarlyLearningPages(doc, group, exercise, amount)
+    addEarlyLearningPages(doc, group, exercise, amount, false, theme)
     addFooter(doc, group, exercise)
     return createPdfResult(doc, getWorksheetFileName(group, exercise), 'local')
   }
 
   if (layout === 'counting') {
-    addCountingPages(doc, group, exercise, amount)
+    addCountingPages(doc, group, exercise, amount, theme)
     addFooter(doc, group, exercise)
     if (includeAnswerSheet) {
       const answers = getCountingAnswers(group, exercise, amount)
@@ -1261,7 +1328,7 @@ export async function generateWorkbookPdf(
   for (const section of activeSections) {
     if (section.exercise.startsWith('tellen-')) {
       if (hasPages) doc.addPage()
-      addCountingPages(doc, group, section.exercise, section.amount)
+      addCountingPages(doc, group, section.exercise, section.amount, theme)
       answerSections.push({
         title: formatExerciseName(section.exercise),
         answers: getCountingAnswers(group, section.exercise, section.amount),
@@ -1271,7 +1338,7 @@ export async function generateWorkbookPdf(
     }
 
     if (earlyLearningExercises.has(section.exercise)) {
-      addEarlyLearningPages(doc, group, section.exercise, section.amount, hasPages)
+      addEarlyLearningPages(doc, group, section.exercise, section.amount, hasPages, theme)
       hasPages = true
       continue
     }
